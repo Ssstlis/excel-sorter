@@ -6,10 +6,9 @@ import scala.util.{Failure, Success, Try}
 
 object ExcelSorterApp extends App {
 
-  def run(filePaths: Seq[String], configs: Seq[SheetSortingConfig]): Unit = {
-    val sorter = SheetSorter(configs: _*)
+  def run(filePaths: Seq[String], configs: Seq[SheetSortingConfig], mode: RunMode, trackConfig: TrackConfig): Unit = {
+    val sorter = SheetSorter(configs, trackConfig)
     val sheetNames = configs.map(_.sheetName).toSet
-    val comparer = PairedSheetComparer(sheetNames, SheetSorter.defaultDateValidator)
 
     val grouped = FilePairer.groupFiles(filePaths)
 
@@ -26,43 +25,102 @@ object ExcelSorterApp extends App {
       }
     }
 
-    grouped.pairs.foreach { pair =>
-      val sortedOld = sortedFiles.get(pair.oldFile)
-      val sortedNew = sortedFiles.get(pair.newFile)
+    mode match {
+      case RunMode.SortOnly =>
+        // Sort-only mode: no further processing
 
-      (sortedOld, sortedNew) match {
-        case (Some(oldPath), Some(newPath)) =>
-          println(s"\nComparing pair: ${pair.prefix}")
-          println(s"  Old: $oldPath")
-          println(s"  New: $newPath")
+      case RunMode.Cut =>
+        val cutter = PairedSheetCutter(sheetNames, trackConfig)
+        grouped.pairs.foreach { pair =>
+          val sortedOld = sortedFiles.get(pair.oldFile)
+          val sortedNew = sortedFiles.get(pair.newFile)
 
-          Try(comparer.compareAndRemoveEqualLeadingRows(oldPath, newPath)) match {
-            case Success(results) =>
-              if (results.isEmpty) {
-                println("  No equal leading rows found in any sheet")
-              } else {
-                results.foreach { r =>
-                  println(s"  Sheet '${r.sheetName}': removed ${r.removedRowCount} equal leading rows")
-                }
+          (sortedOld, sortedNew) match {
+            case (Some(oldPath), Some(newPath)) =>
+              println(s"\nCutting pair: ${pair.prefix}")
+              println(s"  Old: $oldPath")
+              println(s"  New: $newPath")
+
+              Try(cutter.cutEqualLeadingRows(oldPath, newPath)) match {
+                case Success((oldCutPath, newCutPath, results)) =>
+                  println(s"  -> Created: $oldCutPath")
+                  println(s"  -> Created: $newCutPath")
+                  if (results.isEmpty) {
+                    println("  No equal leading rows found in any sheet")
+                  } else {
+                    results.foreach { r =>
+                      println(s"  Sheet '${r.sheetName}': removed ${r.removedRowCount} equal leading rows")
+                    }
+                  }
+                case Failure(ex) =>
+                  System.err.println(s"  -> Cut error: ${ex.getMessage}")
               }
-            case Failure(ex) =>
-              System.err.println(s"  -> Comparison error: ${ex.getMessage}")
-          }
 
-        case _ =>
-          System.err.println(s"Skipping pair ${pair.prefix}: one or both files failed to sort")
-      }
+            case _ =>
+              System.err.println(s"Skipping pair ${pair.prefix}: one or both files failed to sort")
+          }
+        }
+
+      case RunMode.Compare =>
+        val highlighter = PairedSheetHighlighter(sheetNames, trackConfig)
+        grouped.pairs.foreach { pair =>
+          val sortedOld = sortedFiles.get(pair.oldFile)
+          val sortedNew = sortedFiles.get(pair.newFile)
+
+          (sortedOld, sortedNew) match {
+            case (Some(oldPath), Some(newPath)) =>
+              println(s"\nComparing pair: ${pair.prefix}")
+              println(s"  Old: $oldPath")
+              println(s"  New: $newPath")
+
+              Try(highlighter.highlightEqualLeadingRows(oldPath, newPath)) match {
+                case Success((oldCmpPath, newCmpPath, results)) =>
+                  println(s"  -> Created: $oldCmpPath")
+                  println(s"  -> Created: $newCmpPath")
+                  if (results.isEmpty) {
+                    println("  No equal leading rows found in any sheet")
+                  } else {
+                    results.foreach { r =>
+                      println(s"  Sheet '${r.sheetName}': highlighted ${r.highlightedRowCount} equal leading rows")
+                    }
+                  }
+                case Failure(ex) =>
+                  System.err.println(s"  -> Compare error: ${ex.getMessage}")
+              }
+
+            case _ =>
+              System.err.println(s"Skipping pair ${pair.prefix}: one or both files failed to sort")
+          }
+        }
     }
   }
 
-  if (args.isEmpty) {
-    System.err.println("Usage: excel-sorter <file1.xlsx> [file2.xlsx] ...")
+  private def printUsage(): Unit = {
+    System.err.println("Usage: excel-sorter [--cut|-c | --compare|-cmp] <file1.xlsx> [file2.xlsx] ...")
+    System.err.println()
+    System.err.println("Modes:")
+    System.err.println("  (default)        Sort only — creates *_sorted.xlsx files")
+    System.err.println("  --cut, -c        Sort and cut — also creates *_sortcutted.xlsx with equal leading rows removed")
+    System.err.println("  --compare, -cmp  Sort and compare — also creates *_compared.xlsx with equal leading rows highlighted green")
     System.err.println()
     System.err.println("Files can be paired by naming convention:")
     System.err.println("  prefix_old.xlsx + prefix_new.xlsx")
     System.err.println()
-    System.err.println("For paired files, equal leading data rows will be removed from both.")
+    System.err.println("Flags --cut and --compare are mutually exclusive.")
+  }
+
+  if (args.isEmpty) {
+    printUsage()
   } else {
-    run(args.toSeq, ConfigReader.fromConfig(ConfigFactory.load()))
+    CliArgs.parse(args) match {
+      case Left(error) =>
+        System.err.println(s"Error: $error")
+        printUsage()
+      case Right(cliArgs) =>
+        val config = ConfigFactory.load()
+        val sortConfigs = ConfigReader.fromConfig(config)
+        val trackConfig = ConfigReader.readTrackConfig(config)
+        run(cliArgs.filePaths, sortConfigs, cliArgs.mode, trackConfig)
+    }
   }
 }

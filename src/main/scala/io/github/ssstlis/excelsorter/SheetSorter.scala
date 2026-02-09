@@ -11,7 +11,7 @@ import scala.util.Try
 
 class SheetSorter(
   sheetConfigs: Map[String, SheetSortingConfig],
-  dateValidator: String => Boolean = SheetSorter.defaultDateValidator
+  trackConfig: TrackConfig = TrackConfig.empty
 ) {
 
   def sortFile(inputPath: String): String = {
@@ -50,21 +50,19 @@ class SheetSorter(
       val sheet = workbook.getSheetAt(i)
       val sheetName = sheet.getSheetName
       sheetConfigs.get(sheetName) match {
-        case Some(config) => sortSheet(sheet, config)
+        case Some(config) => sortSheet(sheet, config, i)
         case _ => System.err.println(s"No config for $sheetName")
       }
     }
   }
 
-  private def sortSheet(sheet: Sheet, config: SheetSortingConfig): Unit = {
+  private def sortSheet(sheet: Sheet, config: SheetSortingConfig, sheetIndex: Int): Unit = {
     val rows = sheet.iterator().asScala.toList
     if (rows.isEmpty) return
 
-    val (headerRows, dataRows) = rows.span { row =>
-      val firstCell = Option(row.getCell(0))
-      val cellValue = firstCell.map(getCellValueAsString).getOrElse("")
-      !dateValidator(cellValue)
-    }
+    val isDataRow = trackConfig.dataRowDetector(sheet.getSheetName, sheetIndex, CellUtils.getRowCellValue)
+
+    val (headerRows, dataRows) = rows.span(row => !isDataRow(row))
 
     if (dataRows.isEmpty) return
 
@@ -141,39 +139,10 @@ class SheetSorter(
     configs.foldLeft(0) { (acc, config) =>
       if (acc != 0) acc
       else {
-        val valueA = Option(rowA.getCell(config.columnIndex)).map(getCellValueAsString).getOrElse("")
-        val valueB = Option(rowB.getCell(config.columnIndex)).map(getCellValueAsString).getOrElse("")
+        val valueA = CellUtils.getRowCellValue(rowA, config.columnIndex)
+        val valueB = CellUtils.getRowCellValue(rowB, config.columnIndex)
         config.compare(valueA, valueB)
       }
-    }
-  }
-
-  private def getCellValueAsString(cell: Cell): String = {
-    cell.getCellType match {
-      case CellType.NUMERIC =>
-        if (DateUtil.isCellDateFormatted(cell)) {
-          val date = cell.getLocalDateTimeCellValue.toLocalDate
-          date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        } else {
-          val num = cell.getNumericCellValue
-          if (num == num.toLong) num.toLong.toString
-          else num.toString
-        }
-      case CellType.STRING => cell.getStringCellValue
-      case CellType.BOOLEAN => cell.getBooleanCellValue.toString
-      case CellType.FORMULA =>
-        Try {
-          val evaluator = cell.getSheet.getWorkbook.getCreationHelper.createFormulaEvaluator()
-          val evaluated = evaluator.evaluate(cell)
-          evaluated.getCellType match {
-            case CellType.NUMERIC => evaluated.getNumberValue.toString
-            case CellType.STRING => evaluated.getStringValue
-            case CellType.BOOLEAN => evaluated.getBooleanValue.toString
-            case _ => ""
-          }
-        }.getOrElse(cell.getCellFormula)
-      case CellType.BLANK => ""
-      case _ => ""
     }
   }
 }
@@ -201,8 +170,8 @@ object SheetSorter {
     new SheetSorter(configMap)
   }
 
-  def apply(configs: Seq[SheetSortingConfig], dateValidator: String => Boolean): SheetSorter = {
+  def apply(configs: Seq[SheetSortingConfig], trackConfig: TrackConfig): SheetSorter = {
     val configMap = configs.map(c => c.sheetName -> c).toMap
-    new SheetSorter(configMap, dateValidator)
+    new SheetSorter(configMap, trackConfig)
   }
 }

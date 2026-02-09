@@ -206,4 +206,143 @@ class ConfigReaderSpec extends AnyFreeSpec with Matchers {
       sortConfig.compare("31.12.2024", "01.01.2024") should be > 0
     }
   }
+
+  "ConfigReader.readTrackConfig" - {
+
+    "should return empty TrackConfig when tracks key is absent" in {
+      val config = ConfigFactory.parseString(
+        """
+          |sortings: []
+          |""".stripMargin)
+
+      val trackConfig = ConfigReader.readTrackConfig(config)
+      trackConfig shouldBe TrackConfig.empty
+    }
+
+    "should parse null sheet as Default selector" in {
+      val config = ConfigFactory.parseString(
+        """
+          |tracks: [
+          |  {
+          |    sheet: null
+          |    conditions: [
+          |      {index: 0, as: "LocalDate"}
+          |    ]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val trackConfig = ConfigReader.readTrackConfig(config)
+      trackConfig.policies should have size 1
+      trackConfig.policies.head.sheetSelector shouldBe SheetSelector.Default
+    }
+
+    "should parse named sheet selector" in {
+      val config = ConfigFactory.parseString(
+        """
+          |tracks: [
+          |  {
+          |    sheet: "MySheet"
+          |    conditions: [
+          |      {index: 0, as: "String"}
+          |    ]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val trackConfig = ConfigReader.readTrackConfig(config)
+      trackConfig.policies should have size 1
+      trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("MySheet")
+    }
+
+    "should parse indexed sheet selector" in {
+      val config = ConfigFactory.parseString(
+        """
+          |tracks: [
+          |  {
+          |    sheet: 2
+          |    conditions: [
+          |      {index: 0, as: "Int"}
+          |    ]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val trackConfig = ConfigReader.readTrackConfig(config)
+      trackConfig.policies should have size 1
+      trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(2)
+    }
+
+    "should parse multiple conditions" in {
+      val config = ConfigFactory.parseString(
+        """
+          |tracks: [
+          |  {
+          |    sheet: null
+          |    conditions: [
+          |      {index: 0, as: "LocalDate"},
+          |      {index: 1, as: "Int"}
+          |    ]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val trackConfig = ConfigReader.readTrackConfig(config)
+      trackConfig.policies.head.conditions should have size 2
+      trackConfig.policies.head.conditions(0).columnIndex shouldBe 0
+      trackConfig.policies.head.conditions(1).columnIndex shouldBe 1
+    }
+
+    "should create validators for all supported parser types" in {
+      val config = ConfigFactory.parseString(
+        """
+          |tracks: [
+          |  {
+          |    sheet: null
+          |    conditions: [
+          |      {index: 0, as: "String"},
+          |      {index: 1, as: "Int"},
+          |      {index: 2, as: "Long"},
+          |      {index: 3, as: "Double"},
+          |      {index: 4, as: "BigDecimal"},
+          |      {index: 5, as: "LocalDate"},
+          |      {index: 6, as: "LocalDate(dd.MM.yyyy)"}
+          |    ]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val trackConfig = ConfigReader.readTrackConfig(config)
+      val conditions = trackConfig.policies.head.conditions
+
+      conditions(0).validator("hello") shouldBe true
+      conditions(0).validator("") shouldBe false
+      conditions(1).validator("42") shouldBe true
+      conditions(1).validator("abc") shouldBe false
+      conditions(2).validator("123456789") shouldBe true
+      conditions(3).validator("3.14") shouldBe true
+      conditions(4).validator("99.99") shouldBe true
+      conditions(5).validator("2024-01-15") shouldBe true
+      conditions(5).validator("not-a-date") shouldBe false
+      conditions(6).validator("15.01.2024") shouldBe true
+      conditions(6).validator("2024-01-15") shouldBe false
+    }
+
+    "should throw on unknown track condition type" in {
+      val config = ConfigFactory.parseString(
+        """
+          |tracks: [
+          |  {
+          |    sheet: null
+          |    conditions: [
+          |      {index: 0, as: "Unknown"}
+          |    ]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val ex = the[IllegalArgumentException] thrownBy ConfigReader.readTrackConfig(config)
+      ex.getMessage should include("Unknown")
+    }
+  }
 }
