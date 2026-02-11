@@ -6,3 +6,11 @@ case class CompareResult(
   firstMismatchRowNum: Option[Int],
   firstMismatchKey: Option[String]
 )
+
+case class HighlightResult(
+  sheetName: String,
+  matchedSameDataCount: Int,
+  matchedDifferentDataCount: Int,
+  oldOnlyCount: Int,
+  newOnlyCount: Int
+)

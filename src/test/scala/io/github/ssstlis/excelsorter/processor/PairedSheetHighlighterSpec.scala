@@ -5,14 +5,20 @@ import java.nio.file.Files
 
 import io.github.ssstlis.excelsorter.config._
 import io.github.ssstlis.excelsorter.dsl._
-import org.apache.poi.ss.usermodel.{FillPatternType, IndexedColors}
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.apache.poi.ss.usermodel.FillPatternType
+import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFWorkbook}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 
 class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
+
+  private sealed trait DetectedColor
+  private case object Green extends DetectedColor
+  private case object PaleRed extends DetectedColor
+  private case object PaleOrange extends DetectedColor
+  private case object NoHighlight extends DetectedColor
 
   private def createTestWorkbook(path: String, sheetName: String, headers: List[String], dataRows: List[List[String]]): Unit = {
     val wb = new XSSFWorkbook()
@@ -45,17 +51,37 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
     }
   }
 
-  private def isRowHighlighted(path: String, sheetName: String, rowIndex: Int): Boolean = {
+  private def detectRowColor(path: String, sheetName: String, rowIndex: Int): DetectedColor = {
     val wb = CellUtils.loadWorkbook(path)
     try {
       val sheet = wb.getSheet(sheetName)
       val row = sheet.getRow(rowIndex)
-      if (row == null || row.getLastCellNum < 0) return false
+      if (row == null || row.getLastCellNum < 0) return NoHighlight
       val cell = row.getCell(0)
-      if (cell == null) return false
+      if (cell == null) return NoHighlight
       val style = cell.getCellStyle
-      style.getFillPattern == FillPatternType.SOLID_FOREGROUND &&
-        style.getFillForegroundColor == IndexedColors.LIGHT_GREEN.getIndex
+      if (style.getFillPattern != FillPatternType.SOLID_FOREGROUND) return NoHighlight
+
+      style match {
+        case xssf: XSSFCellStyle =>
+          val color = xssf.getFillForegroundXSSFColor
+          if (color == null) return NoHighlight
+          val rgb = color.getRGB
+          if (rgb == null) return NoHighlight
+          val r = rgb(0) & 0xFF
+          val g = rgb(1) & 0xFF
+          val b = rgb(2) & 0xFF
+          if (r == 0x90 && g == 0xEE && b == 0x90) Green         // LIGHT_GREEN indexed color maps to this RGB
+          else if (r == 0xFF && g == 0xCC && b == 0xCC) PaleRed
+          else if (r == 0xFF && g == 0xE5 && b == 0xCC) PaleOrange
+          else {
+            // LIGHT_GREEN can also appear as indexed color
+            val indexed = xssf.getFillForegroundColor
+            if (indexed == org.apache.poi.ss.usermodel.IndexedColors.LIGHT_GREEN.getIndex) Green
+            else NoHighlight
+          }
+        case _ => NoHighlight
+      }
     } finally {
       wb.close()
     }
@@ -72,7 +98,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       createTestWorkbook(newPath, "Sheet1", List("Header"), List(List("2024-01-01"), List("2024-01-03")))
 
       val highlighter = PairedSheetHighlighter(Set("Sheet1"))
-      val (oldCmpPath, newCmpPath, _) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+      val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       oldCmpPath should endWith("_compared.xlsx")
       newCmpPath should endWith("_compared.xlsx")
@@ -92,35 +118,98 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val newOriginalRows = readSheetRows(newPath, "Sheet1")
 
       val highlighter = PairedSheetHighlighter(Set("Sheet1"))
-      highlighter.highlightEqualLeadingRows(oldPath, newPath)
+      highlighter.highlightPairedSheets(oldPath, newPath)
 
       readSheetRows(oldPath, "Sheet1") shouldBe oldOriginalRows
       readSheetRows(newPath, "Sheet1") shouldBe newOriginalRows
     }
 
-    "should highlight equal leading rows with green" in {
+    "should highlight same key + same data rows green" in {
       val tmpDir = Files.createTempDirectory("highlight-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
-      createTestWorkbook(oldPath, "Sheet1", List("Header"),
-        List(List("2024-01-01", "same"), List("2024-01-02", "same"), List("2024-01-03", "old-only")))
-      createTestWorkbook(newPath, "Sheet1", List("Header"),
-        List(List("2024-01-01", "same"), List("2024-01-02", "same"), List("2024-01-04", "new-only")))
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same")))
 
       val highlighter = PairedSheetHighlighter(Set("Sheet1"))
-      val (oldCmpPath, newCmpPath, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+      val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.equalRowCount shouldBe 2
+      results.head.matchedSameDataCount shouldBe 2
 
-      isRowHighlighted(oldCmpPath, "Sheet1", 1) shouldBe true
-      isRowHighlighted(oldCmpPath, "Sheet1", 2) shouldBe true
-      isRowHighlighted(oldCmpPath, "Sheet1", 3) shouldBe false
+      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green
+      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green
+      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green
+      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe Green
+    }
 
-      isRowHighlighted(newCmpPath, "Sheet1", 1) shouldBe true
-      isRowHighlighted(newCmpPath, "Sheet1", 2) shouldBe true
-      isRowHighlighted(newCmpPath, "Sheet1", 3) shouldBe false
+    "should highlight same key + different data rows pale red" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "old-val"), List("2024-01-02", "old-val2")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "new-val"), List("2024-01-02", "new-val2")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.matchedDifferentDataCount shouldBe 2
+
+      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe PaleRed
+      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe PaleRed
+      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe PaleRed
+      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe PaleRed
+    }
+
+    "should highlight key only in old file as pale orange" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "val1"), List("2024-01-02", "val2")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "val1")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.matchedSameDataCount shouldBe 1
+      results.head.oldOnlyCount shouldBe 1
+
+      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green
+      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe PaleOrange
+      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green
+    }
+
+    "should highlight key only in new file as pale orange" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "val1")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "val1"), List("2024-01-03", "val3")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.matchedSameDataCount shouldBe 1
+      results.head.newOnlyCount shouldBe 1
+
+      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green
+      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green
+      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe PaleOrange
     }
 
     "should preserve all rows (no removal)" in {
@@ -134,26 +223,39 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
         List(List("2024-01-01", "same"), List("2024-01-02", "diff-new")))
 
       val highlighter = PairedSheetHighlighter(Set("Sheet1"))
-      val (oldCmpPath, newCmpPath, _) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+      val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       readSheetRows(oldCmpPath, "Sheet1") should have size 3
       readSheetRows(newCmpPath, "Sheet1") should have size 3
     }
 
-    "should not highlight when no equal leading rows" in {
+    "should return correct HighlightResult counts" in {
       val tmpDir = Files.createTempDirectory("highlight-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
-      createTestWorkbook(oldPath, "Sheet1", List("Header"), List(List("2024-01-01", "old")))
-      createTestWorkbook(newPath, "Sheet1", List("Header"), List(List("2024-01-02", "new")))
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(
+          List("2024-01-01", "same"),      // same key + same data -> green
+          List("2024-01-02", "old-val"),    // same key + diff data -> pale red
+          List("2024-01-03", "old-only")    // old only -> pale orange
+        ))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(
+          List("2024-01-01", "same"),      // same key + same data -> green
+          List("2024-01-02", "new-val"),    // same key + diff data -> pale red
+          List("2024-01-04", "new-only")    // new only -> pale orange
+        ))
 
       val highlighter = PairedSheetHighlighter(Set("Sheet1"))
-      val (oldCmpPath, _, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+      val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.equalRowCount shouldBe 0
-      isRowHighlighted(oldCmpPath, "Sheet1", 1) shouldBe false
+      val r = results.head
+      r.matchedSameDataCount shouldBe 1
+      r.matchedDifferentDataCount shouldBe 1
+      r.oldOnlyCount shouldBe 1
+      r.newOnlyCount shouldBe 1
     }
 
     "should use trackConfig for data row detection" in {
@@ -179,16 +281,22 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       ))
 
       val highlighter = PairedSheetHighlighter(Set("Sheet1"), track)
-      val (oldCmpPath, _, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+      val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.equalRowCount shouldBe 1
+      results.head.matchedSameDataCount shouldBe 1
+      results.head.oldOnlyCount shouldBe 1
+      results.head.newOnlyCount shouldBe 1
 
-      isRowHighlighted(oldCmpPath, "Sheet1", 2) shouldBe true
-      isRowHighlighted(oldCmpPath, "Sheet1", 3) shouldBe false
+      // Header rows should not be highlighted
+      detectRowColor(oldCmpPath, "Sheet1", 0) shouldBe NoHighlight
+      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe NoHighlight
+      // Data rows should be highlighted
+      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green
+      detectRowColor(oldCmpPath, "Sheet1", 3) shouldBe PaleOrange
     }
 
-    "should ignore specified columns when comparing" in {
+    "should ignore specified columns when comparing (compareConfig)" in {
       val tmpDir = Files.createTempDirectory("highlight-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
@@ -209,46 +317,102 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       ))
 
       val highlighter = PairedSheetHighlighter(Set("Sheet1"), compareConfig = compare)
-      val (oldCmpPath, _, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+      val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.equalRowCount shouldBe 2
+      results.head.matchedSameDataCount shouldBe 2
+      results.head.matchedDifferentDataCount shouldBe 0
 
-      isRowHighlighted(oldCmpPath, "Sheet1", 1) shouldBe true
-      isRowHighlighted(oldCmpPath, "Sheet1", 2) shouldBe true
+      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green
+      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green
+      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green
+      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe Green
     }
 
-    "should report first mismatch row and key" in {
+    "should use sortConfigsMap columns as keys" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      // Column 1 is the key (not default column 0)
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "ID", "Value"),
+        List(
+          List("2024-01-01", "A", "100"),
+          List("2024-01-02", "B", "200")
+        ))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "ID", "Value"),
+        List(
+          List("2024-01-03", "A", "100"),
+          List("2024-01-04", "C", "300")
+        ))
+
+      val sortConfigs = Map(
+        "Sheet1" -> SheetSortingConfig("Sheet1", List(
+          SortingDsl.asc(1)(SortingDsl.Parsers.asString)
+        ))
+      )
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"), sortConfigsMap = sortConfigs)
+      val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      val r = results.head
+      // Key "A" in both: dates differ -> pale red (unless we also ignore date column)
+      // Key "B" only in old -> pale orange
+      // Key "C" only in new -> pale orange
+      r.matchedDifferentDataCount shouldBe 1
+      r.oldOnlyCount shouldBe 1
+      r.newOnlyCount shouldBe 1
+    }
+
+    "should highlight all rows green when all data is the same" in {
       val tmpDir = Files.createTempDirectory("highlight-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
       createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
-        List(
-          List("2024-01-01", "same"),
-          List("2024-01-02", "same"),
-          List("2024-01-03", "old-only")
-        ))
+        List(List("2024-01-01", "a"), List("2024-01-02", "b"), List("2024-01-03", "c")))
       createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
-        List(
-          List("2024-01-01", "same"),
-          List("2024-01-02", "same"),
-          List("2024-01-04", "new-only")
-        ))
+        List(List("2024-01-01", "a"), List("2024-01-02", "b"), List("2024-01-03", "c")))
 
-      val sortConfigs = Map(
-        "Sheet1" -> SheetSortingConfig("Sheet1", List(
-          SortingDsl.asc(0)(SortingDsl.Parsers.asLocalDateDefault)
-        ))
-      )
-
-      val highlighter = PairedSheetHighlighter(Set("Sheet1"), sortConfigsMap = sortConfigs)
-      val (_, _, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.equalRowCount shouldBe 2
-      results.head.firstMismatchRowNum shouldBe Some(4)
-      results.head.firstMismatchKey shouldBe Some("2024-01-03")
+      results.head.matchedSameDataCount shouldBe 3
+      results.head.matchedDifferentDataCount shouldBe 0
+      results.head.oldOnlyCount shouldBe 0
+      results.head.newOnlyCount shouldBe 0
+
+      (1 to 3).foreach { i =>
+        detectRowColor(oldCmpPath, "Sheet1", i) shouldBe Green
+        detectRowColor(newCmpPath, "Sheet1", i) shouldBe Green
+      }
+    }
+
+    "should highlight all rows pale orange when no matching keys" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "a"), List("2024-01-02", "b")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-03", "c"), List("2024-01-04", "d")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.matchedSameDataCount shouldBe 0
+      results.head.matchedDifferentDataCount shouldBe 0
+      results.head.oldOnlyCount shouldBe 2
+      results.head.newOnlyCount shouldBe 2
+
+      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe PaleOrange
+      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe PaleOrange
+      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe PaleOrange
+      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe PaleOrange
     }
   }
 }

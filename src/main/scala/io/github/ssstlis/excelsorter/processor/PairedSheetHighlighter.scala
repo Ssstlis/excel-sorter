@@ -3,6 +3,7 @@ package io.github.ssstlis.excelsorter.processor
 import io.github.ssstlis.excelsorter.config.{CompareConfig, TrackConfig}
 import io.github.ssstlis.excelsorter.dsl.SheetSortingConfig
 import org.apache.poi.ss.usermodel._
+import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFColor}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -14,7 +15,12 @@ class PairedSheetHighlighter(
   sortConfigsMap: Map[String, SheetSortingConfig] = Map.empty
 ) {
 
-  def highlightEqualLeadingRows(oldSortedPath: String, newSortedPath: String): (String, String, List[CompareResult]) = {
+  private sealed trait HighlightColor
+  private case object Green extends HighlightColor
+  private case object PaleRed extends HighlightColor
+  private case object PaleOrange extends HighlightColor
+
+  def highlightPairedSheets(oldSortedPath: String, newSortedPath: String): (String, String, List[HighlightResult]) = {
     val oldCmpPath = buildComparePath(oldSortedPath)
     val newCmpPath = buildComparePath(newSortedPath)
 
@@ -34,7 +40,7 @@ class PairedSheetHighlighter(
             val sheetIndex = oldWorkbook.getSheetIndex(os)
             highlightSheet(os, ns, oldWorkbook, newWorkbook, sheetName, sheetIndex)
           case _ =>
-            CompareResult(sheetName, 0, None, None)
+            HighlightResult(sheetName, 0, 0, 0, 0)
         }
       }
 
@@ -59,11 +65,11 @@ class PairedSheetHighlighter(
     newWorkbook: Workbook,
     sheetName: String,
     sheetIndex: Int
-  ): CompareResult = {
+  ): HighlightResult = {
     val oldRows = oldSheet.iterator().asScala.toList
     val newRows = newSheet.iterator().asScala.toList
 
-    if (oldRows.isEmpty || newRows.isEmpty) return CompareResult(sheetName, 0, None, None)
+    if (oldRows.isEmpty || newRows.isEmpty) return HighlightResult(sheetName, 0, 0, 0, 0)
 
     val isDataRow = trackConfig.dataRowDetector(sheetName, sheetIndex, CellUtils.getRowCellValue)
     val ignoredCols = compareConfig.ignoredColumns(sheetName, sheetIndex)
@@ -71,47 +77,47 @@ class PairedSheetHighlighter(
     val oldDataStartIdx = oldRows.indexWhere(isDataRow)
     val newDataStartIdx = newRows.indexWhere(isDataRow)
 
-    if (oldDataStartIdx < 0 || newDataStartIdx < 0) return CompareResult(sheetName, 0, None, None)
+    if (oldDataStartIdx < 0 || newDataStartIdx < 0) return HighlightResult(sheetName, 0, 0, 0, 0)
 
     val oldDataRows = oldRows.drop(oldDataStartIdx)
     val newDataRows = newRows.drop(newDataStartIdx)
 
-    val equalCount = oldDataRows.zip(newDataRows).takeWhile { case (oldRow, newRow) =>
-      CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)
-    }.size
+    val oldByKey: Map[String, Row] = oldDataRows.map(r => extractKey(r, sheetName) -> r).toMap
+    val newByKey: Map[String, Row] = newDataRows.map(r => extractKey(r, sheetName) -> r).toMap
 
-    val (mismatchRowNum, mismatchKey) = findFirstMismatch(
-      oldDataRows, newDataRows, equalCount, oldDataStartIdx, sheetName
-    )
+    val allKeys = oldByKey.keySet ++ newByKey.keySet
 
-    if (equalCount > 0) {
-      val oldStyleCache = mutable.Map[Short, CellStyle]()
-      val newStyleCache = mutable.Map[Short, CellStyle]()
+    val oldStyleCache = mutable.Map[(Short, HighlightColor), CellStyle]()
+    val newStyleCache = mutable.Map[(Short, HighlightColor), CellStyle]()
 
-      (0 until equalCount).foreach { i =>
-        applyGreenBackground(oldSheet.getRow(oldDataStartIdx + i), oldWorkbook, oldStyleCache)
-        applyGreenBackground(newSheet.getRow(newDataStartIdx + i), newWorkbook, newStyleCache)
+    var matchedSameData = 0
+    var matchedDiffData = 0
+    var oldOnly = 0
+    var newOnly = 0
+
+    allKeys.foreach { key =>
+      (oldByKey.get(key), newByKey.get(key)) match {
+        case (Some(oldRow), Some(newRow)) =>
+          if (CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)) {
+            applyBackground(oldRow, oldWorkbook, oldStyleCache, Green)
+            applyBackground(newRow, newWorkbook, newStyleCache, Green)
+            matchedSameData += 1
+          } else {
+            applyBackground(oldRow, oldWorkbook, oldStyleCache, PaleRed)
+            applyBackground(newRow, newWorkbook, newStyleCache, PaleRed)
+            matchedDiffData += 1
+          }
+        case (Some(oldRow), None) =>
+          applyBackground(oldRow, oldWorkbook, oldStyleCache, PaleOrange)
+          oldOnly += 1
+        case (None, Some(newRow)) =>
+          applyBackground(newRow, newWorkbook, newStyleCache, PaleOrange)
+          newOnly += 1
+        case _ => // impossible
       }
     }
 
-    CompareResult(sheetName, equalCount, mismatchRowNum, mismatchKey)
-  }
-
-  private def findFirstMismatch(
-    oldDataRows: List[Row],
-    newDataRows: List[Row],
-    equalCount: Int,
-    dataStartIdx: Int,
-    sheetName: String
-  ): (Option[Int], Option[String]) = {
-    if (equalCount < oldDataRows.size && equalCount < newDataRows.size) {
-      val mismatchRow = oldDataRows(equalCount)
-      val excelRowNum = dataStartIdx + equalCount + 1
-      val key = extractKey(mismatchRow, sheetName)
-      (Some(excelRowNum), Some(key))
-    } else {
-      (None, None)
-    }
+    HighlightResult(sheetName, matchedSameData, matchedDiffData, oldOnly, newOnly)
   }
 
   private def extractKey(row: Row, sheetName: String): String = {
@@ -122,7 +128,7 @@ class PairedSheetHighlighter(
     keyColumns.map(col => CellUtils.getRowCellValue(row, col)).mkString(", ")
   }
 
-  private def applyGreenBackground(row: Row, workbook: Workbook, styleCache: mutable.Map[Short, CellStyle]): Unit = {
+  private def applyBackground(row: Row, workbook: Workbook, styleCache: mutable.Map[(Short, HighlightColor), CellStyle], color: HighlightColor): Unit = {
     if (row == null) return
 
     val lastCellNum = row.getLastCellNum
@@ -132,15 +138,26 @@ class PairedSheetHighlighter(
       val cell = row.getCell(colIdx)
       if (cell != null) {
         val originalStyle = cell.getCellStyle
-        val key = originalStyle.getIndex
-        val greenStyle = styleCache.getOrElseUpdate(key, {
+        val key = (originalStyle.getIndex, color)
+        val coloredStyle = styleCache.getOrElseUpdate(key, {
           val newStyle = workbook.createCellStyle()
           newStyle.cloneStyleFrom(originalStyle)
-          newStyle.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex)
+          color match {
+            case Green =>
+              newStyle.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex)
+            case PaleRed =>
+              newStyle.asInstanceOf[XSSFCellStyle].setFillForegroundColor(
+                new XSSFColor(Array[Byte](0xFF.toByte, 0xCC.toByte, 0xCC.toByte), null)
+              )
+            case PaleOrange =>
+              newStyle.asInstanceOf[XSSFCellStyle].setFillForegroundColor(
+                new XSSFColor(Array[Byte](0xFF.toByte, 0xE5.toByte, 0xCC.toByte), null)
+              )
+          }
           newStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
           newStyle
         })
-        cell.setCellStyle(greenStyle)
+        cell.setCellStyle(coloredStyle)
       }
     }
   }

@@ -80,12 +80,12 @@ object ExcelSorterApp extends App {
               println(s"  Old: $oldPath")
               println(s"  New: $newPath")
 
-              Try(highlighter.highlightEqualLeadingRows(oldPath, newPath)) match {
+              Try(highlighter.highlightPairedSheets(oldPath, newPath)) match {
                 case Success((oldCmpPath, newCmpPath, results)) =>
                   println(s"  -> Created: $oldCmpPath")
                   println(s"  -> Created: $newCmpPath")
-                  printCompareResults(results, "highlighted")
-                  writeResultsFile(pair, results)
+                  printHighlightResults(results)
+                  writeHighlightResultsFile(pair, results)
                 case Failure(ex) =>
                   System.err.println(s"  -> Compare error: ${ex.getMessage}")
               }
@@ -143,6 +143,42 @@ object ExcelSorterApp extends App {
                 writer.println(s"  All data rows are equal (${r.equalRowCount} rows)")
             }
           }
+          writer.println()
+        }
+      } finally {
+        writer.close()
+      }
+
+      println(s"  -> Results written to: $resultsPath")
+    } match {
+      case Failure(ex) =>
+        System.err.println(s"  -> Error writing results file: ${ex.getMessage}")
+      case _ =>
+    }
+  }
+
+  private def printHighlightResults(results: List[HighlightResult]): Unit = {
+    results.foreach { r =>
+      println(s"  Sheet '${r.sheetName}': ${r.matchedSameDataCount} matching, ${r.matchedDifferentDataCount} changed, ${r.oldOnlyCount} old-only, ${r.newOnlyCount} new-only")
+    }
+  }
+
+  private def writeHighlightResultsFile(pair: FilePair, results: List[HighlightResult]): Unit = {
+    val oldFileDir = new File(pair.oldFile).getParentFile
+    val resultsPath = new File(oldFileDir, s"${pair.prefix}_compare_results.txt").getAbsolutePath
+
+    Try {
+      val writer = new PrintWriter(resultsPath)
+      try {
+        writer.println(s"Comparison results for: ${pair.prefix}")
+        writer.println()
+
+        results.foreach { r =>
+          writer.println(s"Sheet '${r.sheetName}':")
+          writer.println(s"  Matching rows (same key + same data): ${r.matchedSameDataCount}")
+          writer.println(s"  Changed rows (same key + different data): ${r.matchedDifferentDataCount}")
+          writer.println(s"  Old-only rows: ${r.oldOnlyCount}")
+          writer.println(s"  New-only rows: ${r.newOnlyCount}")
           writer.println()
         }
       } finally {
