@@ -5,7 +5,7 @@ import java.nio.file.Files
 
 import io.github.ssstlis.excelsorter.config._
 import io.github.ssstlis.excelsorter.dsl._
-import org.apache.poi.ss.usermodel.FillPatternType
+import org.apache.poi.ss.usermodel.{BorderStyle, FillPatternType, IndexedColors}
 import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFWorkbook}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -71,9 +71,9 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
           val r = rgb(0) & 0xFF
           val g = rgb(1) & 0xFF
           val b = rgb(2) & 0xFF
-          if (r == 0x90 && g == 0xEE && b == 0x90) Green         // LIGHT_GREEN indexed color maps to this RGB
+          if (r == 0xE1 && g == 0xFA && b == 0xE1) Green         // LIGHT_GREEN indexed color maps to this RGB
           else if (r == 0xFF && g == 0xCC && b == 0xCC) PaleRed
-          else if (r == 0xFF && g == 0xE5 && b == 0xCC) PaleOrange
+          else if (r == 0xF5 && g == 0xE7 && b == 0x9A) PaleOrange
           else {
             // LIGHT_GREEN can also appear as indexed color
             val indexed = xssf.getFillForegroundColor
@@ -81,6 +81,46 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
             else NoHighlight
           }
         case _ => NoHighlight
+      }
+    } finally {
+      wb.close()
+    }
+  }
+
+  private def assertThinBlackBorders(path: String, sheetName: String, rowIndex: Int, colCount: Int): Unit = {
+    val wb = CellUtils.loadWorkbook(path)
+    try {
+      val sheet = wb.getSheet(sheetName)
+      val row = sheet.getRow(rowIndex)
+      row should not be null
+      (0 until colCount).foreach { colIdx =>
+        val cell = row.getCell(colIdx)
+        cell should not be null
+        val style = cell.getCellStyle
+        withClue(s"row=$rowIndex col=$colIdx borderTop: ") {
+          style.getBorderTop shouldBe BorderStyle.THIN
+        }
+        withClue(s"row=$rowIndex col=$colIdx borderBottom: ") {
+          style.getBorderBottom shouldBe BorderStyle.THIN
+        }
+        withClue(s"row=$rowIndex col=$colIdx borderLeft: ") {
+          style.getBorderLeft shouldBe BorderStyle.THIN
+        }
+        withClue(s"row=$rowIndex col=$colIdx borderRight: ") {
+          style.getBorderRight shouldBe BorderStyle.THIN
+        }
+        withClue(s"row=$rowIndex col=$colIdx topBorderColor: ") {
+          style.getTopBorderColor shouldBe IndexedColors.BLACK.getIndex
+        }
+        withClue(s"row=$rowIndex col=$colIdx bottomBorderColor: ") {
+          style.getBottomBorderColor shouldBe IndexedColors.BLACK.getIndex
+        }
+        withClue(s"row=$rowIndex col=$colIdx leftBorderColor: ") {
+          style.getLeftBorderColor shouldBe IndexedColors.BLACK.getIndex
+        }
+        withClue(s"row=$rowIndex col=$colIdx rightBorderColor: ") {
+          style.getRightBorderColor shouldBe IndexedColors.BLACK.getIndex
+        }
       }
     } finally {
       wb.close()
@@ -388,6 +428,101 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
         detectRowColor(oldCmpPath, "Sheet1", i) shouldBe Green
         detectRowColor(newCmpPath, "Sheet1", i) shouldBe Green
       }
+    }
+
+    "should apply thin black borders to all highlighted cells (green)" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, _, _) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      assertThinBlackBorders(oldCmpPath, "Sheet1", rowIndex = 1, colCount = 2)
+    }
+
+    "should apply thin black borders to all highlighted cells (pale red)" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "old")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "new")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      assertThinBlackBorders(oldCmpPath, "Sheet1", rowIndex = 1, colCount = 2)
+      assertThinBlackBorders(newCmpPath, "Sheet1", rowIndex = 1, colCount = 2)
+    }
+
+    "should apply thin black borders to all highlighted cells (pale orange)" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "only-old")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-02", "only-new")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      assertThinBlackBorders(oldCmpPath, "Sheet1", rowIndex = 1, colCount = 2)
+      assertThinBlackBorders(newCmpPath, "Sheet1", rowIndex = 1, colCount = 2)
+    }
+
+    "should not apply borders to non-highlighted header rows" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, _, _) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      val wb = CellUtils.loadWorkbook(oldCmpPath)
+      try {
+        val sheet = wb.getSheet("Sheet1")
+        val headerRow = sheet.getRow(0)
+        (0 until headerRow.getLastCellNum).foreach { colIdx =>
+          val style = headerRow.getCell(colIdx).getCellStyle
+          style.getBorderTop shouldBe BorderStyle.NONE
+          style.getBorderBottom shouldBe BorderStyle.NONE
+          style.getBorderLeft shouldBe BorderStyle.NONE
+          style.getBorderRight shouldBe BorderStyle.NONE
+        }
+      } finally {
+        wb.close()
+      }
+    }
+
+    "should apply thin black borders to every cell in a multi-column highlighted row" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("A", "B", "C", "D", "E"),
+        List(List("2024-01-01", "b", "c", "d", "e")))
+      createTestWorkbook(newPath, "Sheet1", List("A", "B", "C", "D", "E"),
+        List(List("2024-01-01", "b", "c", "d", "e")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, _, _) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      assertThinBlackBorders(oldCmpPath, "Sheet1", rowIndex = 1, colCount = 5)
     }
 
     "should highlight all rows pale orange when no matching keys" in {

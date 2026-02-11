@@ -12,7 +12,53 @@ import scala.util.Try
 object ConfigReader {
   implicit val ord: Ordering[java.time.LocalDate] = SortingDsl.Parsers.localDateOrdering
 
-  private val LocalDatePattern = """LocalDate\((.+)\)""".r
+  private[config] val LocalDatePattern = """LocalDate\((.+)\)""".r
+
+  private[config] def resolveColumnSort(orderStr: String, index: Int, asType: String): ColumnSortConfig[_] = {
+    val order = orderStr.toLowerCase match {
+      case "asc"  => SortOrder.Asc
+      case "desc" => SortOrder.Desc
+      case other  => throw new IllegalArgumentException(s"Unknown sort order: '$other'. Expected 'asc' or 'desc'.")
+    }
+
+    asType match {
+      case "String"     => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asString)
+      case "Int"        => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asInt)
+      case "Long"       => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLong)
+      case "Double"     => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asDouble)
+      case "BigDecimal" => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asBigDecimal)
+      case "LocalDate" =>
+        ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLocalDateDefault)
+      case LocalDatePattern(pattern) =>
+        ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLocalDate(pattern))
+      case other =>
+        throw new IllegalArgumentException(
+          s"Unknown parser type: '$other'. Expected one of: String, Int, Long, Double, BigDecimal, LocalDate, LocalDate(<pattern>)."
+        )
+    }
+  }
+
+  private[config] def resolveTrackValidator(asType: String): String => Boolean = asType match {
+    case "String" =>
+      s => s != null && s.nonEmpty
+    case "Int" =>
+      s => Try(s.toInt).isSuccess
+    case "Long" =>
+      s => Try(s.toLong).isSuccess
+    case "Double" =>
+      s => Try(s.toDouble).isSuccess
+    case "BigDecimal" =>
+      s => Try(BigDecimal(s)).isSuccess
+    case "LocalDate" =>
+      s => TrackConfig.defaultDateValidator(s)
+    case LocalDatePattern(pattern) =>
+      val fmt = DateTimeFormatter.ofPattern(pattern)
+      s => s != null && s.trim.nonEmpty && Try(LocalDate.parse(s.trim, fmt)).isSuccess
+    case other =>
+      throw new IllegalArgumentException(
+        s"Unknown track condition type: '$other'. Expected one of: String, Int, Long, Double, BigDecimal, LocalDate, LocalDate(<pattern>)."
+      )
+  }
 
   def fromConfig(config: Config): Seq[SheetSortingConfig] = {
     config.getConfigList("sortings").asScala.map(parseSheet).toSeq
@@ -67,30 +113,7 @@ object ConfigReader {
   private def parseTrackCondition(condConfig: Config): TrackCondition = {
     val index = condConfig.getInt("index")
     val as = condConfig.getString("as")
-
-    val validator: String => Boolean = as match {
-      case "String" =>
-        s => s != null && s.nonEmpty
-      case "Int" =>
-        s => Try(s.toInt).isSuccess
-      case "Long" =>
-        s => Try(s.toLong).isSuccess
-      case "Double" =>
-        s => Try(s.toDouble).isSuccess
-      case "BigDecimal" =>
-        s => Try(BigDecimal(s)).isSuccess
-      case "LocalDate" =>
-        s => TrackConfig.defaultDateValidator(s)
-      case LocalDatePattern(pattern) =>
-        val fmt = DateTimeFormatter.ofPattern(pattern)
-        s => s != null && s.trim.nonEmpty && Try(LocalDate.parse(s.trim, fmt)).isSuccess
-      case other =>
-        throw new IllegalArgumentException(
-          s"Unknown track condition type: '$other'. Expected one of: String, Int, Long, Double, BigDecimal, LocalDate, LocalDate(<pattern>)."
-        )
-    }
-
-    TrackCondition(index, validator)
+    TrackCondition(index, resolveTrackValidator(as))
   }
 
   private def parseSheet(sheetConfig: Config): SheetSortingConfig = {
@@ -100,28 +123,9 @@ object ConfigReader {
   }
 
   private def parseSortConfig(sortConfig: Config): ColumnSortConfig[_] = {
-    val order = sortConfig.getString("order").toLowerCase match {
-      case "asc"  => SortOrder.Asc
-      case "desc" => SortOrder.Desc
-      case other  => throw new IllegalArgumentException(s"Unknown sort order: '$other'. Expected 'asc' or 'desc'.")
-    }
+    val orderStr = sortConfig.getString("order")
     val index = sortConfig.getInt("index")
     val as = sortConfig.getString("as")
-
-    as match {
-      case "String"     => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asString)
-      case "Int"        => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asInt)
-      case "Long"       => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLong)
-      case "Double"     => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asDouble)
-      case "BigDecimal" => ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asBigDecimal)
-      case "LocalDate" =>
-        ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLocalDateDefault)
-      case LocalDatePattern(pattern) =>
-        ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLocalDate(pattern))
-      case other =>
-        throw new IllegalArgumentException(
-          s"Unknown parser type: '$other'. Expected one of: String, Int, Long, Double, BigDecimal, LocalDate, LocalDate(<pattern>)."
-        )
-    }
+    resolveColumnSort(orderStr, index, as)
   }
 }

@@ -142,16 +142,29 @@ class PairedSheetHighlighter(
         val coloredStyle = styleCache.getOrElseUpdate(key, {
           val newStyle = workbook.createCellStyle()
           newStyle.cloneStyleFrom(originalStyle)
+
+          newStyle.setBorderTop(BorderStyle.THIN)
+          newStyle.setBorderBottom(BorderStyle.THIN)
+          newStyle.setBorderLeft(BorderStyle.THIN)
+          newStyle.setBorderRight(BorderStyle.THIN)
+          newStyle.setTopBorderColor(IndexedColors.BLACK.getIndex)
+          newStyle.setBottomBorderColor(IndexedColors.BLACK.getIndex)
+          newStyle.setLeftBorderColor(IndexedColors.BLACK.getIndex)
+          newStyle.setRightBorderColor(IndexedColors.BLACK.getIndex)
+
+          val xssfNew = newStyle.asInstanceOf[XSSFCellStyle]
           color match {
             case Green =>
-              newStyle.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex)
+              xssfNew.setFillForegroundColor(
+                new XSSFColor(Array[Byte](0xE1.toByte, 0xFA.toByte, 0xE1.toByte), null)
+              )
             case PaleRed =>
-              newStyle.asInstanceOf[XSSFCellStyle].setFillForegroundColor(
+              xssfNew.setFillForegroundColor(
                 new XSSFColor(Array[Byte](0xFF.toByte, 0xCC.toByte, 0xCC.toByte), null)
               )
             case PaleOrange =>
-              newStyle.asInstanceOf[XSSFCellStyle].setFillForegroundColor(
-                new XSSFColor(Array[Byte](0xFF.toByte, 0xE5.toByte, 0xCC.toByte), null)
+              xssfNew.setFillForegroundColor(
+                new XSSFColor(Array[Byte](0xF5.toByte, 0xE7.toByte, 0x9A.toByte), null)
               )
           }
           newStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
