@@ -1,4 +1,4 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.config
 
 sealed trait RunMode
 object RunMode {

@@ -1,4 +1,4 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.config
 
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers

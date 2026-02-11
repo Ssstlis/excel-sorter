@@ -1,6 +1,7 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.config
 
 import com.typesafe.config.ConfigFactory
+import io.github.ssstlis.excelsorter.dsl.SortOrder
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -343,6 +344,104 @@ class ConfigReaderSpec extends AnyFreeSpec with Matchers {
 
       val ex = the[IllegalArgumentException] thrownBy ConfigReader.readTrackConfig(config)
       ex.getMessage should include("Unknown")
+    }
+  }
+
+  "ConfigReader.readCompareConfig" - {
+
+    "should return empty CompareConfig when comparisons key is absent" in {
+      val config = ConfigFactory.parseString(
+        """
+          |sortings: []
+          |""".stripMargin)
+
+      val compareConfig = ConfigReader.readCompareConfig(config)
+      compareConfig shouldBe CompareConfig.empty
+    }
+
+    "should parse null sheet as Default selector" in {
+      val config = ConfigFactory.parseString(
+        """
+          |comparisons: [
+          |  {
+          |    sheet: null
+          |    ignoreColumns: [3, 5]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val compareConfig = ConfigReader.readCompareConfig(config)
+      compareConfig.policies should have size 1
+      compareConfig.policies.head.sheetSelector shouldBe SheetSelector.Default
+      compareConfig.policies.head.ignoreColumns shouldBe Set(3, 5)
+    }
+
+    "should parse named sheet selector" in {
+      val config = ConfigFactory.parseString(
+        """
+          |comparisons: [
+          |  {
+          |    sheet: "MySheet"
+          |    ignoreColumns: [1, 4, 7]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val compareConfig = ConfigReader.readCompareConfig(config)
+      compareConfig.policies should have size 1
+      compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("MySheet")
+      compareConfig.policies.head.ignoreColumns shouldBe Set(1, 4, 7)
+    }
+
+    "should parse indexed sheet selector" in {
+      val config = ConfigFactory.parseString(
+        """
+          |comparisons: [
+          |  {
+          |    sheet: 0
+          |    ignoreColumns: [2]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val compareConfig = ConfigReader.readCompareConfig(config)
+      compareConfig.policies should have size 1
+      compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(0)
+      compareConfig.policies.head.ignoreColumns shouldBe Set(2)
+    }
+
+    "should parse multiple policies" in {
+      val config = ConfigFactory.parseString(
+        """
+          |comparisons: [
+          |  {
+          |    sheet: null
+          |    ignoreColumns: [3]
+          |  },
+          |  {
+          |    sheet: "Sheet1"
+          |    ignoreColumns: [1, 2]
+          |  }
+          |]
+          |""".stripMargin)
+
+      val compareConfig = ConfigReader.readCompareConfig(config)
+      compareConfig.policies should have size 2
+    }
+
+    "should parse empty ignoreColumns list" in {
+      val config = ConfigFactory.parseString(
+        """
+          |comparisons: [
+          |  {
+          |    sheet: null
+          |    ignoreColumns: []
+          |  }
+          |]
+          |""".stripMargin)
+
+      val compareConfig = ConfigReader.readCompareConfig(config)
+      compareConfig.policies.head.ignoreColumns shouldBe Set.empty
     }
   }
 }

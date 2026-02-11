@@ -1,4 +1,4 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.processor
 
 import java.io.{FileInputStream, FileOutputStream}
 import java.nio.file.{Files, Paths, StandardCopyOption}
@@ -70,7 +70,7 @@ object CellUtils {
     Files.copy(Paths.get(sourcePath), Paths.get(destPath), StandardCopyOption.REPLACE_EXISTING)
   }
 
-  def rowsAreEqual(row1: Row, row2: Row): Boolean = {
+  def rowsAreEqual(row1: Row, row2: Row, ignoredColumns: Set[Int] = Set.empty): Boolean = {
     val maxCells = math.max(
       Option(row1).map(_.getLastCellNum.toInt).getOrElse(0),
       Option(row2).map(_.getLastCellNum.toInt).getOrElse(0)
@@ -79,9 +79,11 @@ object CellUtils {
     if (maxCells <= 0) return true
 
     (0 until maxCells).forall { colIdx =>
-      val val1 = Option(row1.getCell(colIdx)).map(getCellValueAsString).getOrElse("")
-      val val2 = Option(row2.getCell(colIdx)).map(getCellValueAsString).getOrElse("")
-      val1 == val2
+      ignoredColumns.contains(colIdx) || {
+        val val1 = Option(row1.getCell(colIdx)).map(getCellValueAsString).getOrElse("")
+        val val2 = Option(row2.getCell(colIdx)).map(getCellValueAsString).getOrElse("")
+        val1 == val2
+      }
     }
   }
 }

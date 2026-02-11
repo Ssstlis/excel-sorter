@@ -1,13 +1,12 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.processor
 
 import java.io.{File, FileOutputStream}
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
+import io.github.ssstlis.excelsorter.config.TrackConfig
+import io.github.ssstlis.excelsorter.dsl.{ColumnSortConfig, SheetSortingConfig}
 import org.apache.poi.ss.usermodel._
 
 import scala.jdk.CollectionConverters._
-import scala.util.Try
 
 class SheetSorter(
   sheetConfigs: Map[String, SheetSortingConfig],
@@ -148,23 +147,6 @@ class SheetSorter(
 }
 
 object SheetSorter {
-  private val defaultDatePatterns = List(
-    DateTimeFormatter.ISO_LOCAL_DATE,
-    DateTimeFormatter.ofPattern("dd.MM.yyyy"),
-    DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-    DateTimeFormatter.ofPattern("MM/dd/yyyy"),
-    DateTimeFormatter.ofPattern("yyyy/MM/dd")
-  )
-
-  val defaultDateValidator: String => Boolean = { s =>
-    if (s == null || s.trim.isEmpty) false
-    else {
-      defaultDatePatterns.exists { fmt =>
-        Try(LocalDate.parse(s.trim, fmt)).isSuccess
-      }
-    }
-  }
-
   def apply(configs: SheetSortingConfig*): SheetSorter = {
     val configMap = configs.map(c => c.sheetName -> c).toMap
     new SheetSorter(configMap)

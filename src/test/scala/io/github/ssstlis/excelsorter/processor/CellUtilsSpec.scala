@@ -1,4 +1,4 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.processor
 
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.scalatest.freespec.AnyFreeSpec
@@ -171,6 +171,67 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           val row2 = sheet.createRow(1)
 
           CellUtils.rowsAreEqual(row1, row2) shouldBe true
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should return true when differing columns are ignored" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val row1 = sheet.createRow(0)
+          row1.createCell(0).setCellValue("same")
+          row1.createCell(1).setCellValue("diff-old")
+          row1.createCell(2).setCellValue("same")
+
+          val row2 = sheet.createRow(1)
+          row2.createCell(0).setCellValue("same")
+          row2.createCell(1).setCellValue("diff-new")
+          row2.createCell(2).setCellValue("same")
+
+          CellUtils.rowsAreEqual(row1, row2) shouldBe false
+          CellUtils.rowsAreEqual(row1, row2, Set(1)) shouldBe true
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should return false when non-ignored columns differ" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val row1 = sheet.createRow(0)
+          row1.createCell(0).setCellValue("a")
+          row1.createCell(1).setCellValue("same")
+          row1.createCell(2).setCellValue("c")
+
+          val row2 = sheet.createRow(1)
+          row2.createCell(0).setCellValue("x")
+          row2.createCell(1).setCellValue("same")
+          row2.createCell(2).setCellValue("c")
+
+          CellUtils.rowsAreEqual(row1, row2, Set(1)) shouldBe false
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should ignore multiple columns" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val row1 = sheet.createRow(0)
+          row1.createCell(0).setCellValue("same")
+          row1.createCell(1).setCellValue("diff1")
+          row1.createCell(2).setCellValue("diff2")
+
+          val row2 = sheet.createRow(1)
+          row2.createCell(0).setCellValue("same")
+          row2.createCell(1).setCellValue("other1")
+          row2.createCell(2).setCellValue("other2")
+
+          CellUtils.rowsAreEqual(row1, row2, Set(1, 2)) shouldBe true
         } finally {
           wb.close()
         }

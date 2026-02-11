@@ -1,8 +1,10 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.processor
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
 
+import io.github.ssstlis.excelsorter.config._
+import io.github.ssstlis.excelsorter.dsl._
 import org.apache.poi.ss.usermodel.{FillPatternType, IndexedColors}
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.scalatest.freespec.AnyFreeSpec
@@ -110,12 +112,10 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
 
       results should have size 1
-      results.head.highlightedRowCount shouldBe 2
+      results.head.equalRowCount shouldBe 2
 
-      // Data rows 1 and 2 (indices 1, 2) should be highlighted
       isRowHighlighted(oldCmpPath, "Sheet1", 1) shouldBe true
       isRowHighlighted(oldCmpPath, "Sheet1", 2) shouldBe true
-      // Data row 3 (index 3) should NOT be highlighted
       isRowHighlighted(oldCmpPath, "Sheet1", 3) shouldBe false
 
       isRowHighlighted(newCmpPath, "Sheet1", 1) shouldBe true
@@ -136,7 +136,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, newCmpPath, _) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
 
-      readSheetRows(oldCmpPath, "Sheet1") should have size 3 // header + 2 data
+      readSheetRows(oldCmpPath, "Sheet1") should have size 3
       readSheetRows(newCmpPath, "Sheet1") should have size 3
     }
 
@@ -151,7 +151,8 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, _, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
 
-      results shouldBe empty
+      results should have size 1
+      results.head.equalRowCount shouldBe 0
       isRowHighlighted(oldCmpPath, "Sheet1", 1) shouldBe false
     }
 
@@ -181,12 +182,73 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (oldCmpPath, _, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
 
       results should have size 1
-      results.head.highlightedRowCount shouldBe 1
+      results.head.equalRowCount shouldBe 1
 
-      // Row index 2 is the first data row (DATA-1) - should be highlighted
       isRowHighlighted(oldCmpPath, "Sheet1", 2) shouldBe true
-      // Row index 3 is the second data row (DATA-2) - should NOT be highlighted
       isRowHighlighted(oldCmpPath, "Sheet1", 3) shouldBe false
+    }
+
+    "should ignore specified columns when comparing" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Amount", "Note"),
+        List(
+          List("2024-01-01", "100", "old-note"),
+          List("2024-01-02", "200", "old-diff")
+        ))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Amount", "Note"),
+        List(
+          List("2024-01-01", "100", "new-note"),
+          List("2024-01-02", "200", "new-diff")
+        ))
+
+      val compare = CompareConfig(List(
+        ComparePolicy(SheetSelector.Default, Set(2))
+      ))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"), compareConfig = compare)
+      val (oldCmpPath, _, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+
+      results should have size 1
+      results.head.equalRowCount shouldBe 2
+
+      isRowHighlighted(oldCmpPath, "Sheet1", 1) shouldBe true
+      isRowHighlighted(oldCmpPath, "Sheet1", 2) shouldBe true
+    }
+
+    "should report first mismatch row and key" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(
+          List("2024-01-01", "same"),
+          List("2024-01-02", "same"),
+          List("2024-01-03", "old-only")
+        ))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(
+          List("2024-01-01", "same"),
+          List("2024-01-02", "same"),
+          List("2024-01-04", "new-only")
+        ))
+
+      val sortConfigs = Map(
+        "Sheet1" -> SheetSortingConfig("Sheet1", List(
+          SortingDsl.asc(0)(SortingDsl.Parsers.asLocalDateDefault)
+        ))
+      )
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"), sortConfigsMap = sortConfigs)
+      val (_, _, results) = highlighter.highlightEqualLeadingRows(oldPath, newPath)
+
+      results should have size 1
+      results.head.equalRowCount shouldBe 2
+      results.head.firstMismatchRowNum shouldBe Some(4)
+      results.head.firstMismatchKey shouldBe Some("2024-01-03")
     }
   }
 }

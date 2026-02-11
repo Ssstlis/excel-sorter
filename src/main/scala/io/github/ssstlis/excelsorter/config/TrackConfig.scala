@@ -1,6 +1,11 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.config
+
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 import org.apache.poi.ss.usermodel.Row
+
+import scala.util.Try
 
 sealed trait SheetSelector
 object SheetSelector {
@@ -35,7 +40,7 @@ case class TrackConfig(policies: List[TrackPolicy]) {
       case None =>
         row => {
           val value = getCellValue(row, 0)
-          SheetSorter.defaultDateValidator(value)
+          TrackConfig.defaultDateValidator(value)
         }
     }
   }
@@ -43,4 +48,21 @@ case class TrackConfig(policies: List[TrackPolicy]) {
 
 object TrackConfig {
   val empty: TrackConfig = TrackConfig(Nil)
+
+  private val defaultDatePatterns = List(
+    DateTimeFormatter.ISO_LOCAL_DATE,
+    DateTimeFormatter.ofPattern("dd.MM.yyyy"),
+    DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+    DateTimeFormatter.ofPattern("MM/dd/yyyy"),
+    DateTimeFormatter.ofPattern("yyyy/MM/dd")
+  )
+
+  val defaultDateValidator: String => Boolean = { s =>
+    if (s == null || s.trim.isEmpty) false
+    else {
+      defaultDatePatterns.exists { fmt =>
+        Try(LocalDate.parse(s.trim, fmt)).isSuccess
+      }
+    }
+  }
 }

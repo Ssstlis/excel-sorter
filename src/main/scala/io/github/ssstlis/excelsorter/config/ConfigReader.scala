@@ -1,9 +1,10 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.config
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 import com.typesafe.config.{Config, ConfigValueType}
+import io.github.ssstlis.excelsorter.dsl._
 
 import scala.jdk.CollectionConverters._
 import scala.util.Try
@@ -25,21 +26,39 @@ object ConfigReader {
     TrackConfig(policies)
   }
 
-  private def parseTrackPolicy(trackConfig: Config): TrackPolicy = {
-    val sheetSelector = if (trackConfig.getIsNull("sheet")) {
+  def readCompareConfig(config: Config): CompareConfig = {
+    if (!config.hasPath("comparisons")) return CompareConfig.empty
+
+    val compareList = config.getConfigList("comparisons").asScala.toList
+    val policies = compareList.map(parseComparePolicy)
+    CompareConfig(policies)
+  }
+
+  private def parseSheetSelector(entry: Config): SheetSelector = {
+    if (entry.getIsNull("sheet")) {
       SheetSelector.Default
     } else {
-      trackConfig.getValue("sheet").valueType() match {
+      entry.getValue("sheet").valueType() match {
         case ConfigValueType.NUMBER =>
-          SheetSelector.ByIndex(trackConfig.getInt("sheet"))
+          SheetSelector.ByIndex(entry.getInt("sheet"))
         case ConfigValueType.STRING =>
-          SheetSelector.ByName(trackConfig.getString("sheet"))
+          SheetSelector.ByName(entry.getString("sheet"))
         case other =>
           throw new IllegalArgumentException(
             s"Invalid sheet selector type: $other. Expected null, string, or number."
           )
       }
     }
+  }
+
+  private def parseComparePolicy(compareConfig: Config): ComparePolicy = {
+    val sheetSelector = parseSheetSelector(compareConfig)
+    val ignoreColumns = compareConfig.getIntList("ignoreColumns").asScala.map(_.intValue()).toSet
+    ComparePolicy(sheetSelector, ignoreColumns)
+  }
+
+  private def parseTrackPolicy(trackConfig: Config): TrackPolicy = {
+    val sheetSelector = parseSheetSelector(trackConfig)
 
     val conditions = trackConfig.getConfigList("conditions").asScala.toList.map(parseTrackCondition)
     TrackPolicy(sheetSelector, conditions)
@@ -61,7 +80,7 @@ object ConfigReader {
       case "BigDecimal" =>
         s => Try(BigDecimal(s)).isSuccess
       case "LocalDate" =>
-        s => SheetSorter.defaultDateValidator(s)
+        s => TrackConfig.defaultDateValidator(s)
       case LocalDatePattern(pattern) =>
         val fmt = DateTimeFormatter.ofPattern(pattern)
         s => s != null && s.trim.nonEmpty && Try(LocalDate.parse(s.trim, fmt)).isSuccess

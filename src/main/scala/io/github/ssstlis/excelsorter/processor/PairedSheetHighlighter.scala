@@ -1,5 +1,7 @@
-package io.github.ssstlis.excelsorter
+package io.github.ssstlis.excelsorter.processor
 
+import io.github.ssstlis.excelsorter.config.{CompareConfig, TrackConfig}
+import io.github.ssstlis.excelsorter.dsl.SheetSortingConfig
 import org.apache.poi.ss.usermodel._
 
 import scala.collection.mutable
@@ -7,15 +9,12 @@ import scala.jdk.CollectionConverters._
 
 class PairedSheetHighlighter(
   sheetConfigs: Set[String],
-  trackConfig: TrackConfig = TrackConfig.empty
+  trackConfig: TrackConfig = TrackConfig.empty,
+  compareConfig: CompareConfig = CompareConfig.empty,
+  sortConfigsMap: Map[String, SheetSortingConfig] = Map.empty
 ) {
 
-  case class HighlightResult(
-    sheetName: String,
-    highlightedRowCount: Int
-  )
-
-  def highlightEqualLeadingRows(oldSortedPath: String, newSortedPath: String): (String, String, List[HighlightResult]) = {
+  def highlightEqualLeadingRows(oldSortedPath: String, newSortedPath: String): (String, String, List[CompareResult]) = {
     val oldCmpPath = buildComparePath(oldSortedPath)
     val newCmpPath = buildComparePath(newSortedPath)
 
@@ -26,16 +25,16 @@ class PairedSheetHighlighter(
     val newWorkbook = CellUtils.loadWorkbook(newCmpPath)
 
     try {
-      val results = sheetConfigs.toList.sorted.flatMap { sheetName =>
+      val results = sheetConfigs.toList.sorted.map { sheetName =>
         val oldSheet = Option(oldWorkbook.getSheet(sheetName))
         val newSheet = Option(newWorkbook.getSheet(sheetName))
 
         (oldSheet, newSheet) match {
           case (Some(os), Some(ns)) =>
             val sheetIndex = oldWorkbook.getSheetIndex(os)
-            val count = highlightSheet(os, ns, oldWorkbook, newWorkbook, sheetName, sheetIndex)
-            if (count > 0) Some(HighlightResult(sheetName, count)) else None
-          case _ => None
+            highlightSheet(os, ns, oldWorkbook, newWorkbook, sheetName, sheetIndex)
+          case _ =>
+            CompareResult(sheetName, 0, None, None)
         }
       }
 
@@ -60,25 +59,30 @@ class PairedSheetHighlighter(
     newWorkbook: Workbook,
     sheetName: String,
     sheetIndex: Int
-  ): Int = {
+  ): CompareResult = {
     val oldRows = oldSheet.iterator().asScala.toList
     val newRows = newSheet.iterator().asScala.toList
 
-    if (oldRows.isEmpty || newRows.isEmpty) return 0
+    if (oldRows.isEmpty || newRows.isEmpty) return CompareResult(sheetName, 0, None, None)
 
     val isDataRow = trackConfig.dataRowDetector(sheetName, sheetIndex, CellUtils.getRowCellValue)
+    val ignoredCols = compareConfig.ignoredColumns(sheetName, sheetIndex)
 
     val oldDataStartIdx = oldRows.indexWhere(isDataRow)
     val newDataStartIdx = newRows.indexWhere(isDataRow)
 
-    if (oldDataStartIdx < 0 || newDataStartIdx < 0) return 0
+    if (oldDataStartIdx < 0 || newDataStartIdx < 0) return CompareResult(sheetName, 0, None, None)
 
     val oldDataRows = oldRows.drop(oldDataStartIdx)
     val newDataRows = newRows.drop(newDataStartIdx)
 
     val equalCount = oldDataRows.zip(newDataRows).takeWhile { case (oldRow, newRow) =>
-      CellUtils.rowsAreEqual(oldRow, newRow)
+      CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)
     }.size
+
+    val (mismatchRowNum, mismatchKey) = findFirstMismatch(
+      oldDataRows, newDataRows, equalCount, oldDataStartIdx, sheetName
+    )
 
     if (equalCount > 0) {
       val oldStyleCache = mutable.Map[Short, CellStyle]()
@@ -90,7 +94,32 @@ class PairedSheetHighlighter(
       }
     }
 
-    equalCount
+    CompareResult(sheetName, equalCount, mismatchRowNum, mismatchKey)
+  }
+
+  private def findFirstMismatch(
+    oldDataRows: List[Row],
+    newDataRows: List[Row],
+    equalCount: Int,
+    dataStartIdx: Int,
+    sheetName: String
+  ): (Option[Int], Option[String]) = {
+    if (equalCount < oldDataRows.size && equalCount < newDataRows.size) {
+      val mismatchRow = oldDataRows(equalCount)
+      val excelRowNum = dataStartIdx + equalCount + 1
+      val key = extractKey(mismatchRow, sheetName)
+      (Some(excelRowNum), Some(key))
+    } else {
+      (None, None)
+    }
+  }
+
+  private def extractKey(row: Row, sheetName: String): String = {
+    val keyColumns = sortConfigsMap.get(sheetName) match {
+      case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
+      case _ => List(0)
+    }
+    keyColumns.map(col => CellUtils.getRowCellValue(row, col)).mkString(", ")
   }
 
   private def applyGreenBackground(row: Row, workbook: Workbook, styleCache: mutable.Map[Short, CellStyle]): Unit = {
@@ -118,6 +147,11 @@ class PairedSheetHighlighter(
 }
 
 object PairedSheetHighlighter {
-  def apply(sheetNames: Set[String], trackConfig: TrackConfig = TrackConfig.empty): PairedSheetHighlighter =
-    new PairedSheetHighlighter(sheetNames, trackConfig)
+  def apply(
+    sheetNames: Set[String],
+    trackConfig: TrackConfig = TrackConfig.empty,
+    compareConfig: CompareConfig = CompareConfig.empty,
+    sortConfigsMap: Map[String, SheetSortingConfig] = Map.empty
+  ): PairedSheetHighlighter =
+    new PairedSheetHighlighter(sheetNames, trackConfig, compareConfig, sortConfigsMap)
 }
