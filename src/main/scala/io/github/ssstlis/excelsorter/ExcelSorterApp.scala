@@ -217,7 +217,7 @@ object ExcelSorterApp extends App {
   }
 
   private def printUsage(): Unit = {
-    System.err.println("""Usage: excel-sorter [-h|--help] [--cut|-c | --compare|-cmp] <files...> [--conf <config-blocks...>]")
+    System.err.println("""Usage: excel-sorter [-h|--help] [--cut|-c | --compare|-cmp] <files...> [--conf <config-blocks...>]
 
     Options:
       -h, --help       Show this help message and exit
