@@ -258,7 +258,7 @@ object ExcelSorterApp extends App {
       Example:
         excel-sorter --cut file_old.xlsx file_new.xlsx --conf \
           --sortings -sheet "Sheet1" -sort asc 0 LocalDate -sort desc 2 String \
-          --tracks -sheet default -cond 0 LocalDate \\
+          --tracks -sheet default -cond 0 LocalDate \
           --comparisons -sheet "Sheet1" -ic 1 13""")
   }
 
