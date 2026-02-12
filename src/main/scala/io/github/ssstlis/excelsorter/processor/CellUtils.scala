@@ -70,6 +70,39 @@ object CellUtils {
     Files.copy(Paths.get(sourcePath), Paths.get(destPath), StandardCopyOption.REPLACE_EXISTING)
   }
 
+  def rowsAreEqualMapped(
+    oldRow: Row,
+    newRow: Row,
+    columnMapping: List[(Int, Int)],
+    ignoredOldColumns: Set[Int] = Set.empty
+  ): Boolean = {
+    columnMapping.forall { case (oldIdx, newIdx) =>
+      ignoredOldColumns.contains(oldIdx) || {
+        val oldVal = Option(oldRow.getCell(oldIdx)).map(getCellValueAsString).getOrElse("")
+        val newVal = Option(newRow.getCell(newIdx)).map(getCellValueAsString).getOrElse("")
+        oldVal == newVal
+      }
+    }
+  }
+
+  def findCellDiffsMapped(
+    oldRow: Row,
+    newRow: Row,
+    columnMapping: List[(Int, Int)],
+    headerNames: Map[Int, String],
+    ignoredOldColumns: Set[Int] = Set.empty
+  ): List[CellDiff] = {
+    columnMapping.flatMap { case (oldIdx, newIdx) =>
+      if (ignoredOldColumns.contains(oldIdx)) None
+      else {
+        val oldVal = Option(oldRow.getCell(oldIdx)).map(getCellValueAsString).getOrElse("")
+        val newVal = Option(newRow.getCell(newIdx)).map(getCellValueAsString).getOrElse("")
+        if (oldVal == newVal) None
+        else Some(CellDiff(headerNames.getOrElse(oldIdx, s"Column $oldIdx"), oldIdx, newIdx, oldVal, newVal))
+      }
+    }
+  }
+
   def rowsAreEqual(row1: Row, row2: Row, ignoredColumns: Set[Int] = Set.empty): Boolean = {
     val maxCells = math.max(
       Option(row1).map(_.getLastCellNum.toInt).getOrElse(0),

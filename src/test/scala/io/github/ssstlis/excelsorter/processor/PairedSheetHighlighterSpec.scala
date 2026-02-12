@@ -525,6 +525,203 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       assertThinBlackBorders(oldCmpPath, "Sheet1", rowIndex = 1, colCount = 5)
     }
 
+    "should match columns by header name when new file has extra column" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same2")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Extra", "Value"),
+        List(List("2024-01-01", "extra-data", "same"), List("2024-01-02", "extra-data2", "same2")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.matchedSameDataCount shouldBe 2
+      results.head.matchedDifferentDataCount shouldBe 0
+      results.head.newOnlyColumns should contain("Extra")
+    }
+
+    "should match columns by header name when old file has extra column" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Extra", "Value"),
+        List(List("2024-01-01", "extra-data", "same"), List("2024-01-02", "extra-data2", "same2")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same2")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.matchedSameDataCount shouldBe 2
+      results.head.matchedDifferentDataCount shouldBe 0
+      results.head.oldOnlyColumns should contain("Extra")
+    }
+
+    "should handle reordered columns via header matching" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      // Old: Date(0), Amount(1), Note(2)
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Amount", "Note"),
+        List(List("2024-01-01", "100", "noteA"), List("2024-01-02", "200", "noteB")))
+      // New: Note(0), Date(1), Amount(2) — reordered
+      createTestWorkbook(newPath, "Sheet1", List("Note", "Date", "Amount"),
+        List(List("noteA", "2024-01-01", "100"), List("noteB", "2024-01-02", "200")))
+
+      // Use explicit trackConfig since default checks col 0 for date, which fails for reordered new file
+      val headerValues = Set("Date", "Amount", "Note")
+      val track = TrackConfig(List(
+        TrackPolicy(SheetSelector.Default, List(
+          TrackCondition(0, v => v.nonEmpty && !headerValues.contains(v))
+        ))
+      ))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"), track)
+      val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.matchedSameDataCount shouldBe 2
+      results.head.matchedDifferentDataCount shouldBe 0
+      results.head.oldOnlyColumns shouldBe empty
+      results.head.newOnlyColumns shouldBe empty
+    }
+
+    "should report rowDiffs with cell-level details for changed rows" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "old-val")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "new-val")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      val r = results.head
+      r.matchedDifferentDataCount shouldBe 1
+      r.rowDiffs should have size 1
+      val rd = r.rowDiffs.head
+      rd.key shouldBe "2024-01-01"
+      rd.cellDiffs should have size 1
+      rd.cellDiffs.head.columnName shouldBe "Value"
+      rd.cellDiffs.head.oldValue shouldBe "old-val"
+      rd.cellDiffs.head.newValue shouldBe "new-val"
+    }
+
+    "should report empty rowDiffs when all rows match" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "same")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.rowDiffs shouldBe empty
+    }
+
+    "should report oldOnlyColumns and newOnlyColumns in result" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "OldExtra", "Value"),
+        List(List("2024-01-01", "x", "same")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value", "NewExtra"),
+        List(List("2024-01-01", "same", "y")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      results should have size 1
+      results.head.oldOnlyColumns shouldBe List("OldExtra")
+      results.head.newOnlyColumns shouldBe List("NewExtra")
+    }
+
+    "data integrity: values in compared files should match original inputs, no cross-file contamination" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(
+          List("2024-01-01", "OLD-A"),
+          List("2024-01-02", "OLD-B"),
+          List("2024-01-03", "OLD-ONLY")
+        ))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
+        List(
+          List("2024-01-01", "NEW-A"),
+          List("2024-01-02", "OLD-B"),
+          List("2024-01-04", "NEW-ONLY")
+        ))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      val oldCmpRows = readSheetRows(oldCmpPath, "Sheet1")
+      val newCmpRows = readSheetRows(newCmpPath, "Sheet1")
+
+      // Old file should contain only original old values — no contamination from new file
+      oldCmpRows(1) shouldBe List("2024-01-01", "OLD-A")
+      oldCmpRows(2) shouldBe List("2024-01-02", "OLD-B")
+      oldCmpRows(3) shouldBe List("2024-01-03", "OLD-ONLY")
+
+      // New file should contain only original new values — no contamination from old file
+      newCmpRows(1) shouldBe List("2024-01-01", "NEW-A")
+      newCmpRows(2) shouldBe List("2024-01-02", "OLD-B")
+      newCmpRows(3) shouldBe List("2024-01-04", "NEW-ONLY")
+
+      // Specifically verify no old value leaked into new file or vice versa
+      val oldFlatValues = oldCmpRows.drop(1).flatten
+      val newFlatValues = newCmpRows.drop(1).flatten
+      oldFlatValues should not contain "NEW-A"
+      oldFlatValues should not contain "NEW-ONLY"
+      newFlatValues should not contain "OLD-A"
+      newFlatValues should not contain "OLD-ONLY"
+    }
+
+    "data integrity: compared files preserve values with extra columns in new file" in {
+      val tmpDir = Files.createTempDirectory("highlight-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
+        List(List("2024-01-01", "OLD-VAL")))
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Extra", "Value"),
+        List(List("2024-01-01", "EXTRA-DATA", "NEW-VAL")))
+
+      val highlighter = PairedSheetHighlighter(Set("Sheet1"))
+      val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
+
+      val oldCmpRows = readSheetRows(oldCmpPath, "Sheet1")
+      val newCmpRows = readSheetRows(newCmpPath, "Sheet1")
+
+      // Old file values preserved
+      oldCmpRows(1) shouldBe List("2024-01-01", "OLD-VAL")
+      // New file values preserved including extra column
+      newCmpRows(1) shouldBe List("2024-01-01", "EXTRA-DATA", "NEW-VAL")
+
+      // No cross-contamination
+      oldCmpRows(1) should not contain "EXTRA-DATA"
+      oldCmpRows(1) should not contain "NEW-VAL"
+    }
+
     "should highlight all rows pale orange when no matching keys" in {
       val tmpDir = Files.createTempDirectory("highlight-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath

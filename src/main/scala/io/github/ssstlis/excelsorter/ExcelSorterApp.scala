@@ -160,6 +160,12 @@ object ExcelSorterApp extends App {
   private def printHighlightResults(results: List[HighlightResult]): Unit = {
     results.foreach { r =>
       println(s"  Sheet '${r.sheetName}': ${r.matchedSameDataCount} matching, ${r.matchedDifferentDataCount} changed, ${r.oldOnlyCount} old-only, ${r.newOnlyCount} new-only")
+      if (r.oldOnlyColumns.nonEmpty)
+        println(s"    Columns only in old file: ${r.oldOnlyColumns.mkString(", ")}")
+      if (r.newOnlyColumns.nonEmpty)
+        println(s"    Columns only in new file: ${r.newOnlyColumns.mkString(", ")}")
+      if (r.rowDiffs.nonEmpty)
+        println(s"    ${r.rowDiffs.size} row(s) with cell-level differences")
     }
   }
 
@@ -179,6 +185,23 @@ object ExcelSorterApp extends App {
           writer.println(s"  Changed rows (same key + different data): ${r.matchedDifferentDataCount}")
           writer.println(s"  Old-only rows: ${r.oldOnlyCount}")
           writer.println(s"  New-only rows: ${r.newOnlyCount}")
+
+          if (r.oldOnlyColumns.nonEmpty)
+            writer.println(s"  Columns only in old file: ${r.oldOnlyColumns.mkString(", ")}")
+          if (r.newOnlyColumns.nonEmpty)
+            writer.println(s"  Columns only in new file: ${r.newOnlyColumns.mkString(", ")}")
+
+          if (r.rowDiffs.nonEmpty) {
+            writer.println()
+            writer.println(s"  Row differences (${r.rowDiffs.size}):")
+            r.rowDiffs.foreach { rd =>
+              writer.println(s"    Key: ${rd.key} (old row ${rd.oldRowNum}, new row ${rd.newRowNum})")
+              rd.cellDiffs.foreach { cd =>
+                writer.println(s"      ${cd.columnName}: '${cd.oldValue}' -> '${cd.newValue}'")
+              }
+            }
+          }
+
           writer.println()
         }
       } finally {

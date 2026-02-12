@@ -5,6 +5,7 @@ import io.github.ssstlis.excelsorter.dsl.SheetSortingConfig
 import org.apache.poi.ss.usermodel._
 import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFColor}
 
+import java.text.Normalizer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
@@ -58,6 +59,90 @@ class PairedSheetHighlighter(
     sortedPath.replace("_sorted.xlsx", "_compared.xlsx")
   }
 
+  private[processor] def buildColumnMapping(
+    oldSheet: Sheet,
+    newSheet: Sheet,
+    oldDataStartIdx: Int,
+    newDataStartIdx: Int,
+    sheetName: String
+  ): ColumnMapping = {
+    val oldHeaderRowIdx = oldDataStartIdx - 1
+    val newHeaderRowIdx = newDataStartIdx - 1
+
+    val oldHeaderRow = if (oldHeaderRowIdx >= 0) Option(oldSheet.getRow(oldHeaderRowIdx)) else None
+    val newHeaderRow = if (newHeaderRowIdx >= 0) Option(newSheet.getRow(newHeaderRowIdx)) else None
+
+    (oldHeaderRow, newHeaderRow) match {
+      case (Some(ohr), Some(nhr)) =>
+        val oldHeaders = extractHeaders(ohr)
+        val newHeaders = extractHeaders(nhr)
+
+        val newHeadersByName = mutable.Map[String, mutable.Queue[Int]]()
+        newHeaders.foreach { case (idx, name) =>
+          newHeadersByName.getOrElseUpdate(name, mutable.Queue[Int]()) += idx
+        }
+
+        val usedNewIndices = mutable.Set[Int]()
+        val commonColumns = mutable.ListBuffer[(Int, Int)]()
+        val oldOnlyCols = mutable.ListBuffer[(Int, String)]()
+
+        oldHeaders.foreach { case (oldIdx, name) =>
+          newHeadersByName.get(name).flatMap(q => if (q.nonEmpty) Some(q.dequeue()) else None) match {
+            case Some(newIdx) =>
+              commonColumns += ((oldIdx, newIdx))
+              usedNewIndices += newIdx
+            case None =>
+              oldOnlyCols += ((oldIdx, name))
+          }
+        }
+
+        val newOnlyCols = newHeaders.filterNot { case (idx, _) => usedNewIndices.contains(idx) }
+
+        val sortColumnIndices = sortConfigsMap.get(sheetName) match {
+          case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
+          case _ => List(0)
+        }
+
+        val oldKeyIndices = sortColumnIndices
+        val newKeyIndices = sortColumnIndices.map { oldIdx =>
+          commonColumns.find(_._1 == oldIdx).map(_._2).getOrElse(oldIdx)
+        }
+
+        ColumnMapping(commonColumns.toList, oldOnlyCols.toList, newOnlyCols, oldKeyIndices, newKeyIndices)
+
+      case _ =>
+        // Fallback: positional mapping
+        val oldLastCell = Option(oldSheet.getRow(oldDataStartIdx)).map(_.getLastCellNum.toInt).getOrElse(0)
+        val newLastCell = Option(newSheet.getRow(newDataStartIdx)).map(_.getLastCellNum.toInt).getOrElse(0)
+        val maxCols = math.max(oldLastCell, newLastCell)
+        val positional = (0 until maxCols).map(i => (i, i)).toList
+
+        val sortColumnIndices = sortConfigsMap.get(sheetName) match {
+          case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
+          case _ => List(0)
+        }
+
+        ColumnMapping(positional, Nil, Nil, sortColumnIndices, sortColumnIndices)
+    }
+  }
+
+  private def normalizeHeader(s: String): String = {
+    val normalized = Normalizer.normalize(s, Normalizer.Form.NFKC)
+    normalized.replaceAll("[\\p{Cf}]", "").trim
+  }
+
+  private def extractHeaders(row: Row): List[(Int, String)] = {
+    val lastCell = row.getLastCellNum
+    if (lastCell < 0) Nil
+    else (0 until lastCell).map { i =>
+      i -> normalizeHeader(Option(row.getCell(i)).map(CellUtils.getCellValueAsString).getOrElse(""))
+    }.toList
+  }
+
+  private def extractKey(row: Row, keyColumnIndices: List[Int]): String = {
+    keyColumnIndices.map(col => CellUtils.getRowCellValue(row, col)).mkString(", ")
+  }
+
   private def highlightSheet(
     oldSheet: Sheet,
     newSheet: Sheet,
@@ -79,11 +164,23 @@ class PairedSheetHighlighter(
 
     if (oldDataStartIdx < 0 || newDataStartIdx < 0) return HighlightResult(sheetName, 0, 0, 0, 0)
 
+    val mapping = buildColumnMapping(oldSheet, newSheet, oldDataStartIdx, newDataStartIdx, sheetName)
+
+    val headerNames: Map[Int, String] = {
+      val headerRowIdx = oldDataStartIdx - 1
+      if (headerRowIdx >= 0) {
+        Option(oldSheet.getRow(headerRowIdx)) match {
+          case Some(hr) => extractHeaders(hr).toMap
+          case None => Map.empty[Int, String]
+        }
+      } else Map.empty[Int, String]
+    }
+
     val oldDataRows = oldRows.drop(oldDataStartIdx)
     val newDataRows = newRows.drop(newDataStartIdx)
 
-    val oldByKey: Map[String, Row] = oldDataRows.map(r => extractKey(r, sheetName) -> r).toMap
-    val newByKey: Map[String, Row] = newDataRows.map(r => extractKey(r, sheetName) -> r).toMap
+    val oldByKey: Map[String, Row] = oldDataRows.map(r => extractKey(r, mapping.oldKeyIndices) -> r).toMap
+    val newByKey: Map[String, Row] = newDataRows.map(r => extractKey(r, mapping.newKeyIndices) -> r).toMap
 
     val allKeys = oldByKey.keySet ++ newByKey.keySet
 
@@ -94,11 +191,12 @@ class PairedSheetHighlighter(
     var matchedDiffData = 0
     var oldOnly = 0
     var newOnly = 0
+    val rowDiffs = mutable.ListBuffer[RowDiff]()
 
     allKeys.foreach { key =>
       (oldByKey.get(key), newByKey.get(key)) match {
         case (Some(oldRow), Some(newRow)) =>
-          if (CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)) {
+          if (CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping.commonColumns, ignoredCols)) {
             applyBackground(oldRow, oldWorkbook, oldStyleCache, Green)
             applyBackground(newRow, newWorkbook, newStyleCache, Green)
             matchedSameData += 1
@@ -106,6 +204,8 @@ class PairedSheetHighlighter(
             applyBackground(oldRow, oldWorkbook, oldStyleCache, PaleRed)
             applyBackground(newRow, newWorkbook, newStyleCache, PaleRed)
             matchedDiffData += 1
+            val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping.commonColumns, headerNames, ignoredCols)
+            rowDiffs += RowDiff(key, oldRow.getRowNum + 1, newRow.getRowNum + 1, diffs)
           }
         case (Some(oldRow), None) =>
           applyBackground(oldRow, oldWorkbook, oldStyleCache, PaleOrange)
@@ -117,15 +217,12 @@ class PairedSheetHighlighter(
       }
     }
 
-    HighlightResult(sheetName, matchedSameData, matchedDiffData, oldOnly, newOnly)
-  }
-
-  private def extractKey(row: Row, sheetName: String): String = {
-    val keyColumns = sortConfigsMap.get(sheetName) match {
-      case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
-      case _ => List(0)
-    }
-    keyColumns.map(col => CellUtils.getRowCellValue(row, col)).mkString(", ")
+    HighlightResult(
+      sheetName, matchedSameData, matchedDiffData, oldOnly, newOnly,
+      rowDiffs = rowDiffs.toList,
+      oldOnlyColumns = mapping.oldOnlyColumns.map(_._2),
+      newOnlyColumns = mapping.newOnlyColumns.map(_._2)
+    )
   }
 
   private def applyBackground(row: Row, workbook: Workbook, styleCache: mutable.Map[(Short, HighlightColor), CellStyle], color: HighlightColor): Unit = {

@@ -237,5 +237,183 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         }
       }
     }
+
+    "rowsAreEqualMapped" - {
+
+      "should compare only mapped column pairs" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          // old row: col0=A, col1=B, col2=C
+          val oldRow = sheet.createRow(0)
+          oldRow.createCell(0).setCellValue("A")
+          oldRow.createCell(1).setCellValue("B")
+          oldRow.createCell(2).setCellValue("C")
+
+          // new row: col0=X, col1=A, col2=B, col3=C
+          val newRow = sheet.createRow(1)
+          newRow.createCell(0).setCellValue("X")
+          newRow.createCell(1).setCellValue("A")
+          newRow.createCell(2).setCellValue("B")
+          newRow.createCell(3).setCellValue("C")
+
+          // Map old col0->new col1, old col1->new col2, old col2->new col3
+          val mapping = List((0, 1), (1, 2), (2, 3))
+          CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping) shouldBe true
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should return false when mapped columns differ" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val oldRow = sheet.createRow(0)
+          oldRow.createCell(0).setCellValue("A")
+          oldRow.createCell(1).setCellValue("B")
+
+          val newRow = sheet.createRow(1)
+          newRow.createCell(0).setCellValue("A")
+          newRow.createCell(1).setCellValue("Z")
+
+          val mapping = List((0, 0), (1, 1))
+          CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping) shouldBe false
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should respect ignoredColumns" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val oldRow = sheet.createRow(0)
+          oldRow.createCell(0).setCellValue("same")
+          oldRow.createCell(1).setCellValue("old-val")
+
+          val newRow = sheet.createRow(1)
+          newRow.createCell(0).setCellValue("same")
+          newRow.createCell(1).setCellValue("new-val")
+
+          val mapping = List((0, 0), (1, 1))
+          CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping) shouldBe false
+          CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping, Set(1)) shouldBe true
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should return true for empty mapping" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val oldRow = sheet.createRow(0)
+          oldRow.createCell(0).setCellValue("A")
+          val newRow = sheet.createRow(1)
+          newRow.createCell(0).setCellValue("B")
+
+          CellUtils.rowsAreEqualMapped(oldRow, newRow, Nil) shouldBe true
+        } finally {
+          wb.close()
+        }
+      }
+    }
+
+    "findCellDiffsMapped" - {
+
+      "should return correct diffs for differing cells" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val oldRow = sheet.createRow(0)
+          oldRow.createCell(0).setCellValue("same")
+          oldRow.createCell(1).setCellValue("old-val")
+          oldRow.createCell(2).setCellValue("old-val2")
+
+          val newRow = sheet.createRow(1)
+          newRow.createCell(0).setCellValue("same")
+          newRow.createCell(1).setCellValue("new-val")
+          newRow.createCell(2).setCellValue("new-val2")
+
+          val mapping = List((0, 0), (1, 1), (2, 2))
+          val headers = Map(0 -> "Date", 1 -> "Amount", 2 -> "Note")
+
+          val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping, headers)
+          diffs should have size 2
+          diffs(0) shouldBe CellDiff("Amount", 1, 1, "old-val", "new-val")
+          diffs(1) shouldBe CellDiff("Note", 2, 2, "old-val2", "new-val2")
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should return empty list for equal rows" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val oldRow = sheet.createRow(0)
+          oldRow.createCell(0).setCellValue("same")
+          oldRow.createCell(1).setCellValue("same2")
+
+          val newRow = sheet.createRow(1)
+          newRow.createCell(0).setCellValue("same")
+          newRow.createCell(1).setCellValue("same2")
+
+          val mapping = List((0, 0), (1, 1))
+          val headers = Map(0 -> "A", 1 -> "B")
+
+          CellUtils.findCellDiffsMapped(oldRow, newRow, mapping, headers) shouldBe empty
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should skip ignored columns" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val oldRow = sheet.createRow(0)
+          oldRow.createCell(0).setCellValue("same")
+          oldRow.createCell(1).setCellValue("old-val")
+
+          val newRow = sheet.createRow(1)
+          newRow.createCell(0).setCellValue("same")
+          newRow.createCell(1).setCellValue("new-val")
+
+          val mapping = List((0, 0), (1, 1))
+          val headers = Map(0 -> "A", 1 -> "B")
+
+          CellUtils.findCellDiffsMapped(oldRow, newRow, mapping, headers, Set(1)) shouldBe empty
+        } finally {
+          wb.close()
+        }
+      }
+
+      "should handle remapped columns" in {
+        val wb = new XSSFWorkbook()
+        try {
+          val sheet = wb.createSheet("Test")
+          val oldRow = sheet.createRow(0)
+          oldRow.createCell(0).setCellValue("A")
+          oldRow.createCell(1).setCellValue("B")
+
+          val newRow = sheet.createRow(1)
+          newRow.createCell(0).setCellValue("X")
+          newRow.createCell(1).setCellValue("A")
+          newRow.createCell(2).setCellValue("changed-B")
+
+          // old col0 -> new col1, old col1 -> new col2
+          val mapping = List((0, 1), (1, 2))
+          val headers = Map(0 -> "First", 1 -> "Second")
+
+          val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping, headers)
+          diffs should have size 1
+          diffs.head shouldBe CellDiff("Second", 1, 2, "B", "changed-B")
+        } finally {
+          wb.close()
+        }
+      }
+    }
   }
 }
