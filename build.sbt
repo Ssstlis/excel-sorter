@@ -1,10 +1,28 @@
-ThisBuild / version := "0.1.0"
-
-ThisBuild / scalaVersion := "2.13.18"
-
+Global / onChangedBuildSource := ReloadOnSourceChanges
 ThisBuild / parallelExecution := false
 
-ThisBuild / Compile / packageSrc / publishArtifact  := false
+ThisBuild / homepage := Some(url("https://github.com/Ssstlis/excel-sorter"))
+ThisBuild / description := "Excel sorting and compare util."
+ThisBuild / licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0"))
+ThisBuild / developers := List(
+  Developer("Ssstlis", "Ivan Aristov", "ssstlis@pm.me", url("https://github.com/ssstlis"))
+)
+ThisBuild / scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/Ssstlis/excel-sorter"),
+    "git@github.com:Ssstlis/excel-sorter.git"
+  )
+)
+
+ThisBuild / version := {
+  val envVersion = sys.env.getOrElse("APP_VERSION", "-SNAPSHOT")
+  if (envVersion.endsWith("SNAPSHOT")) {
+    git.gitHeadCommit.value.getOrElse("").take(8) + envVersion
+  } else envVersion
+}
+ThisBuild / versionScheme := Some("pvp")
+
+ThisBuild / scalaVersion := "2.13.18"
 
 lazy val buildSettings = Seq(
   organization := "io.github.ssstlis",
@@ -13,10 +31,6 @@ lazy val buildSettings = Seq(
     "-g:vars",
     "-unchecked",
     "-deprecation",
-    //    "-Ymacro-debug-lite",
-    //    "-Xprint:typer",          // Print AST after typer phase (shows macro expansions)
-    //    "-Yshow-trees-compact",   // More compact tree output
-    //    "-Yshow-trees-stringified", // Shows as Scala code when possible
     "-feature",
     "-language:implicitConversions",
     "-language:existentials",
@@ -37,7 +51,7 @@ lazy val `excel-sorter` = project.in(file("."))
     libraryDependencies ++= Seq(
       "org.apache.poi" % "poi" % "5.5.1",
       "org.apache.poi" % "poi-ooxml" % "5.5.1",
-      "com.typesafe" % "config" % "1.4.3",
+      "com.typesafe" % "config" % "1.4.5",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     )
   )

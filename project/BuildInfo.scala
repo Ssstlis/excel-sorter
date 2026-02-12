@@ -1,5 +1,5 @@
 import Key.*
-import com.typesafe.sbt.SbtGit.git
+import com.github.sbt.git.SbtGit.git
 import sbt.Keys.{name, version}
 import sbt.Project
 import sbtbuildinfo.BuildInfoKeys.{buildInfoKeys, buildInfoOptions, buildInfoPackage}
@@ -16,7 +16,7 @@ object BuildInfo {
         .settings(
           buildCommit := git.gitHeadCommit.value.getOrElse("unknown"),
           buildBranch := git.gitCurrentBranch.value,
-//          buildTime := Instant.now,
+          buildTime := Instant.now,
           buildNumber := sys.props.getOrElse("BUILD_NUMBER", "0"),
           buildInfoKeys := {
             Seq[BuildInfoKey](name, version, buildCommit, buildBranch, buildTime, buildNumber)
