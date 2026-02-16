@@ -1,7 +1,7 @@
 package io.github.ssstlis.excelsorter.processor
 
 import io.github.ssstlis.excelsorter.config.{CompareConfig, TrackConfig}
-import io.github.ssstlis.excelsorter.dsl.SheetSortingConfig
+import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
 import org.apache.poi.ss.usermodel._
 
 import scala.jdk.CollectionConverters._

@@ -1,6 +1,7 @@
 package io.github.ssstlis.excelsorter.config
 
-import io.github.ssstlis.excelsorter.dsl.SheetSortingConfig
+import cats.syntax.either._
+import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
 
 sealed trait RunMode
 object RunMode {
@@ -77,40 +78,35 @@ object CliArgs {
     val blocks = splitIntoBlocks(args)
 
     if (blocks.isEmpty) {
-      return Left("--conf requires at least one configuration block (--sortings, --tracks, or --comparisons).")
-    }
-
-    var sortings = List.empty[SheetSortingConfig]
-    var trackPolicies = List.empty[TrackPolicy]
-    var comparePolicies = List.empty[ComparePolicy]
-
-    for ((blockType, blockArgs) <- blocks) {
-      blockType match {
-        case "--sortings" =>
-          parseSortingsBlock(blockArgs) match {
-            case Left(err)  => return Left(err)
-            case Right(cfg) => sortings = sortings :+ cfg
+      Left("--conf requires at least one configuration block (--sortings, --tracks, or --comparisons).")
+    } else {
+      blocks.foldLeft(Either.right[String, (List[SheetSortingConfig], List[TrackPolicy], List[ComparePolicy])](Nil, Nil, Nil)) {
+        case (acc, (blockType, blockArgs)) =>
+          acc.flatMap { case acc@(sortings, trackPolicies, comparePolicies) =>
+            blockType match {
+              case "--sortings" =>
+                SheetSortingConfig.parseSortingsBlock(blockArgs).map { cfg =>
+                  acc.copy(_1 = cfg :: sortings)
+                }
+              case "--tracks" =>
+                TrackPolicy.parseTracksBlock(blockArgs).map { policy =>
+                  acc.copy(_2 = policy :: trackPolicies)
+                }
+              case "--comparisons" =>
+                ComparePolicy.parseComparisonsBlock(blockArgs).map { policy =>
+                  acc.copy(_3 = policy :: comparePolicies)
+                }
+              case other => Left(s"Unknown config block type: '$other'. Expected --sortings, --tracks, or --comparisons.")
+            }
           }
-        case "--tracks" =>
-          parseTracksBlock(blockArgs) match {
-            case Left(err)     => return Left(err)
-            case Right(policy) => trackPolicies = trackPolicies :+ policy
-          }
-        case "--comparisons" =>
-          parseComparisonsBlock(blockArgs) match {
-            case Left(err)     => return Left(err)
-            case Right(policy) => comparePolicies = comparePolicies :+ policy
-          }
-        case other =>
-          return Left(s"Unknown config block type: '$other'. Expected --sortings, --tracks, or --comparisons.")
+      }.map { case (sortings, trackPolicies, comparePolicies) =>
+        CliConfig(
+          sortings.reverse,
+          TrackConfig(trackPolicies.reverse),
+          CompareConfig(comparePolicies.reverse)
+        )
       }
     }
-
-    Right(CliConfig(
-      sortings,
-      TrackConfig(trackPolicies),
-      CompareConfig(comparePolicies)
-    ))
   }
 
   private def splitIntoBlocks(args: List[String]): List[(String, List[String])] = {
@@ -140,155 +136,11 @@ object CliArgs {
     result.result()
   }
 
-  private def parseSortingsBlock(args: List[String]): Either[String, SheetSortingConfig] = {
-    val (sheetName, rest) = parseSheetName(args) match {
-      case Left(err) => return Left(s"--sortings: $err")
-      case Right(v)  => v
-    }
-
-    val sorts = parseSortEntries(rest) match {
-      case Left(err) => return Left(s"--sortings: $err")
-      case Right(v)  => v
-    }
-
-    if (sorts.isEmpty) {
-      return Left("--sortings: at least one -sort/-o entry is required.")
-    }
-
-    Right(SheetSortingConfig(sheetName, sorts))
-  }
-
-  private def parseSortEntries(args: List[String]): Either[String, List[io.github.ssstlis.excelsorter.dsl.ColumnSortConfig[_]]] = {
-    val sortFlags = Set("-sort", "-o")
-    var remaining = args
-    val result = List.newBuilder[io.github.ssstlis.excelsorter.dsl.ColumnSortConfig[_]]
-
-    while (remaining.nonEmpty) {
-      remaining match {
-        case flag :: order :: idxStr :: asType :: tail if sortFlags.contains(flag) =>
-          val index = try { idxStr.toInt } catch {
-            case _: NumberFormatException => return Left(s"Invalid column index: '$idxStr'. Expected an integer.")
-          }
-          try {
-            result += ConfigReader.resolveColumnSort(order, index, asType)
-          } catch {
-            case e: IllegalArgumentException => return Left(e.getMessage)
-          }
-          remaining = tail
-        case flag :: _ if sortFlags.contains(flag) =>
-          return Left(s"$flag requires 3 arguments: <order> <column-index> <type>")
-        case other :: _ =>
-          return Left(s"Unexpected argument: '$other'. Expected -sort or -o.")
-        case Nil => // won't happen due to while condition
-      }
-    }
-
-    Right(result.result())
-  }
-
-  private def parseTracksBlock(args: List[String]): Either[String, TrackPolicy] = {
-    val (sheetNameOrDefault, rest) = parseSheetName(args) match {
-      case Left(err) => return Left(s"--tracks: $err")
-      case Right(v)  => v
-    }
-
-    val selector = parseSheetSelector(sheetNameOrDefault)
-
-    val conditions = parseCondEntries(rest) match {
-      case Left(err) => return Left(s"--tracks: $err")
-      case Right(v)  => v
-    }
-
-    if (conditions.isEmpty) {
-      return Left("--tracks: at least one -cond/-d entry is required.")
-    }
-
-    Right(TrackPolicy(selector, conditions))
-  }
-
-  private def parseCondEntries(args: List[String]): Either[String, List[TrackCondition]] = {
-    val condFlags = Set("-cond", "-d")
-    var remaining = args
-    val result = List.newBuilder[TrackCondition]
-
-    while (remaining.nonEmpty) {
-      remaining match {
-        case flag :: idxStr :: asType :: tail if condFlags.contains(flag) =>
-          val index = try { idxStr.toInt } catch {
-            case _: NumberFormatException => return Left(s"Invalid column index: '$idxStr'. Expected an integer.")
-          }
-          val validator = try {
-            ConfigReader.resolveTrackValidator(asType)
-          } catch {
-            case e: IllegalArgumentException => return Left(e.getMessage)
-          }
-          result += TrackCondition(index, validator)
-          remaining = tail
-        case flag :: _ if condFlags.contains(flag) =>
-          return Left(s"$flag requires 2 arguments: <column-index> <type>")
-        case other :: _ =>
-          return Left(s"Unexpected argument: '$other'. Expected -cond or -d.")
-        case Nil =>
-      }
-    }
-
-    Right(result.result())
-  }
-
-  private def parseComparisonsBlock(args: List[String]): Either[String, ComparePolicy] = {
-    val (sheetNameOrDefault, rest) = parseSheetName(args) match {
-      case Left(err) => return Left(s"--comparisons: $err")
-      case Right(v)  => v
-    }
-
-    val selector = parseSheetSelector(sheetNameOrDefault)
-
-    val ignoreColumns = parseIgnoreColumns(rest) match {
-      case Left(err) => return Left(s"--comparisons: $err")
-      case Right(v)  => v
-    }
-
-    if (ignoreColumns.isEmpty) {
-      return Left("--comparisons: at least one column index after -ic is required.")
-    }
-
-    Right(ComparePolicy(selector, ignoreColumns))
-  }
-
-  private def parseIgnoreColumns(args: List[String]): Either[String, Set[Int]] = {
-    args match {
-      case "-ic" :: tail =>
-        if (tail.isEmpty) return Left("-ic requires at least one column index.")
-        val indices = tail.map { s =>
-          try { s.toInt } catch {
-            case _: NumberFormatException => return Left(s"Invalid column index after -ic: '$s'. Expected an integer.")
-          }
-        }
-        Right(indices.toSet)
-      case Nil =>
-        Left("Expected -ic flag.")
-      case other :: _ =>
-        Left(s"Unexpected argument: '$other'. Expected -ic.")
-    }
-  }
-
-  private def parseSheetName(args: List[String]): Either[String, (String, List[String])] = {
+  def parseSheetName(args: List[String]): Either[String, (String, List[String])] = {
     args match {
       case ("-sheet" | "-s") :: name :: tail => Right((name, tail))
       case ("-sheet" | "-s") :: Nil          => Left("Missing sheet name after -sheet/-s.")
       case _                                 => Left("Expected -sheet/-s as first argument.")
-    }
-  }
-
-  private[config] def parseSheetSelector(value: String): SheetSelector = {
-    if (value == "default") {
-      SheetSelector.Default
-    } else {
-      try {
-        SheetSelector.ByIndex(value.toInt)
-      } catch {
-        case _: NumberFormatException => SheetSelector.ByName(value)
-      }
     }
   }
 }

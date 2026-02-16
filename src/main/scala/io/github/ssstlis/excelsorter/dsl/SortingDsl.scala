@@ -1,42 +1,12 @@
 package io.github.ssstlis.excelsorter.dsl
 
-import scala.util.Try
+import io.github.ssstlis.excelsorter.dsl.config.{ColumnSortConfig, SheetSortingConfig}
 
 sealed trait SortOrder
 object SortOrder {
   case object Asc extends SortOrder
   case object Desc extends SortOrder
 }
-
-case class ColumnSortConfig[T](
-  columnIndex: Int,
-  order: SortOrder,
-  parser: String => T
-)(implicit val ordering: Ordering[T]) {
-
-  def compare(a: String, b: String): Int = {
-    val result = for {
-      parsedA <- Try(parser(a))
-      parsedB <- Try(parser(b))
-    } yield ordering.compare(parsedA, parsedB)
-
-    val cmp = result.getOrElse(a.compareTo(b))
-    order match {
-      case SortOrder.Asc  => cmp
-      case SortOrder.Desc => -cmp
-    }
-  }
-}
-
-object ColumnSortConfig {
-  def create[T: Ordering](columnIndex: Int, order: SortOrder)(parser: String => T): ColumnSortConfig[T] =
-    new ColumnSortConfig(columnIndex, order, parser)
-}
-
-case class SheetSortingConfig(
-  sheetName: String,
-  sortConfigs: List[ColumnSortConfig[_]]
-)
 
 object SortingDsl {
   import SortOrder._

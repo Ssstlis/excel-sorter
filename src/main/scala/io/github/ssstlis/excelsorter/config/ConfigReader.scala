@@ -2,9 +2,9 @@ package io.github.ssstlis.excelsorter.config
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
 import com.typesafe.config.{Config, ConfigValueType}
 import io.github.ssstlis.excelsorter.dsl._
+import io.github.ssstlis.excelsorter.dsl.config.{ColumnSortConfig, SheetSortingConfig}
 
 import scala.jdk.CollectionConverters._
 import scala.util.Try
@@ -14,7 +14,7 @@ object ConfigReader {
 
   private[config] val LocalDatePattern = """LocalDate\((.+)\)""".r
 
-  private[config] def resolveColumnSort(orderStr: String, index: Int, asType: String): ColumnSortConfig[_] = {
+  def resolveColumnSort(orderStr: String, index: Int, asType: String): ColumnSortConfig[_] = {
     val order = orderStr.toLowerCase match {
       case "asc"  => SortOrder.Asc
       case "desc" => SortOrder.Desc

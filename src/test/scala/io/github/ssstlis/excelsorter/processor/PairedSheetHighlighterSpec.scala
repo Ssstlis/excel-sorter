@@ -2,9 +2,9 @@ package io.github.ssstlis.excelsorter.processor
 
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
-
 import io.github.ssstlis.excelsorter.config._
 import io.github.ssstlis.excelsorter.dsl._
+import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
 import org.apache.poi.ss.usermodel.{BorderStyle, FillPatternType, IndexedColors}
 import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFWorkbook}
 import org.scalatest.freespec.AnyFreeSpec

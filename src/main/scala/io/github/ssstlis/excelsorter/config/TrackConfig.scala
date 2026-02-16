@@ -1,22 +1,59 @@
 package io.github.ssstlis.excelsorter.config
 
+import io.github.ssstlis.excelsorter.config.CliArgs.parseSheetName
+import io.github.ssstlis.excelsorter.config.SheetSelector.parseSheetSelector
+
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
 import org.apache.poi.ss.usermodel.Row
 
 import scala.util.Try
 
-sealed trait SheetSelector
-object SheetSelector {
-  case object Default extends SheetSelector
-  case class ByName(name: String) extends SheetSelector
-  case class ByIndex(index: Int) extends SheetSelector
-}
-
 case class TrackCondition(columnIndex: Int, validator: String => Boolean)
 
 case class TrackPolicy(sheetSelector: SheetSelector, conditions: List[TrackCondition])
+
+object TrackPolicy {
+  def parseTracksBlock(args: List[String]): Either[String, TrackPolicy] = {
+    parseSheetName(args).flatMap { case (sheetNameOrDefault, rest) =>
+      val selector = SheetSelector.parseSheetSelector(sheetNameOrDefault)
+      parseCondEntries(rest).map((selector, _))
+    } match {
+      case Left(err) => Left(s"--tracks: $err")
+      case Right((_, Nil)) => Left("--tracks: at least one -cond/-d entry is required.")
+      case Right((selector, conditions)) => Right(TrackPolicy(selector, conditions))
+    }
+  }
+
+  private def parseCondEntries(args: List[String]): Either[String, List[TrackCondition]] = {
+    val condFlags = Set("-cond", "-d")
+    var remaining = args
+    val result = List.newBuilder[TrackCondition]
+
+    while (remaining.nonEmpty) {
+      remaining match {
+        case flag :: idxStr :: asType :: tail if condFlags.contains(flag) =>
+          val index = try { idxStr.toInt } catch {
+            case _: NumberFormatException => return Left(s"Invalid column index: '$idxStr'. Expected an integer.")
+          }
+          val validator = try {
+            ConfigReader.resolveTrackValidator(asType)
+          } catch {
+            case e: IllegalArgumentException => return Left(e.getMessage)
+          }
+          result += TrackCondition(index, validator)
+          remaining = tail
+        case flag :: _ if condFlags.contains(flag) =>
+          return Left(s"$flag requires 2 arguments: <column-index> <type>")
+        case other :: _ =>
+          return Left(s"Unexpected argument: '$other'. Expected -cond or -d.")
+        case Nil =>
+      }
+    }
+
+    Right(result.result())
+  }
+}
 
 case class TrackConfig(policies: List[TrackPolicy]) {
 

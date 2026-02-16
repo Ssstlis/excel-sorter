@@ -286,20 +286,4 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
       result shouldBe Right(CliArgs(RunMode.SortOnly, Seq("file.xlsx"), None))
     }
   }
-
-  "CliArgs.parseSheetSelector" - {
-
-    "parses 'default' as Default" in {
-      CliArgs.parseSheetSelector("default") shouldBe SheetSelector.Default
-    }
-
-    "parses numeric string as ByIndex" in {
-      CliArgs.parseSheetSelector("0") shouldBe SheetSelector.ByIndex(0)
-      CliArgs.parseSheetSelector("3") shouldBe SheetSelector.ByIndex(3)
-    }
-
-    "parses non-numeric string as ByName" in {
-      CliArgs.parseSheetSelector("MySheet") shouldBe SheetSelector.ByName("MySheet")
-    }
-  }
 }

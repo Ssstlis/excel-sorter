@@ -4,7 +4,7 @@ import java.io.{File, PrintWriter}
 
 import com.typesafe.config.ConfigFactory
 import io.github.ssstlis.excelsorter.config._
-import io.github.ssstlis.excelsorter.dsl.SheetSortingConfig
+import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
 import io.github.ssstlis.excelsorter.processor._
 
 import scala.util.{Failure, Success, Try}

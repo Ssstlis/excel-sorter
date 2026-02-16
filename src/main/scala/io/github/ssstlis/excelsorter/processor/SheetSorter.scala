@@ -3,7 +3,7 @@ package io.github.ssstlis.excelsorter.processor
 import java.io.{File, FileOutputStream}
 
 import io.github.ssstlis.excelsorter.config.TrackConfig
-import io.github.ssstlis.excelsorter.dsl.{ColumnSortConfig, SheetSortingConfig}
+import io.github.ssstlis.excelsorter.dsl.config.{ColumnSortConfig, SheetSortingConfig}
 import org.apache.poi.ss.usermodel._
 
 import scala.jdk.CollectionConverters._
