@@ -56,42 +56,48 @@ class PairedSheetCutter(
     val oldRows = oldSheet.iterator().asScala.toList
     val newRows = newSheet.iterator().asScala.toList
 
-    if (oldRows.isEmpty || newRows.isEmpty) return CompareResult(sheetName, 0, None, None)
+    if (oldRows.isEmpty || newRows.isEmpty) {
+      CompareResult(sheetName, 0, None, None)
+    } else {
 
-    val isDataRow = trackConfig.dataRowDetector(sheetName, sheetIndex, CellUtils.getRowCellValue)
-    val ignoredCols = compareConfig.ignoredColumns(sheetName, sheetIndex)
+      val isDataRow = trackConfig.dataRowDetector(sheetName, sheetIndex, CellUtils.getRowCellValue)
+      val ignoredCols = compareConfig.ignoredColumns(sheetName, sheetIndex)
 
-    val oldDataStartIdx = oldRows.indexWhere(isDataRow)
-    val newDataStartIdx = newRows.indexWhere(isDataRow)
+      val oldDataStartIdx = oldRows.indexWhere(isDataRow)
+      val newDataStartIdx = newRows.indexWhere(isDataRow)
 
-    if (oldDataStartIdx < 0 || newDataStartIdx < 0) return CompareResult(sheetName, 0, None, None)
+      if (oldDataStartIdx < 0 || newDataStartIdx < 0) {
+        CompareResult(sheetName, 0, None, None)
+      } else {
 
-    val oldDataRows = oldRows.drop(oldDataStartIdx)
-    val newDataRows = newRows.drop(newDataStartIdx)
+        val oldDataRows = oldRows.drop(oldDataStartIdx)
+        val newDataRows = newRows.drop(newDataStartIdx)
 
-    val equalCount = oldDataRows.zip(newDataRows).takeWhile { case (oldRow, newRow) =>
-      CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)
-    }.size
+        val equalCount = oldDataRows.zip(newDataRows).takeWhile { case (oldRow, newRow) =>
+          CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)
+        }.size
 
-    val (mismatchRowNum, mismatchKey) = findFirstMismatch(
-      oldDataRows, newDataRows, equalCount, oldDataStartIdx, sheetName
-    )
+        val (mismatchRowNum, mismatchKey) = findFirstMismatch(
+          oldDataRows, newDataRows, equalCount, oldDataStartIdx, sheetName
+        )
 
-    if (equalCount > 0) {
-      removeRows(oldSheet, oldDataStartIdx, equalCount)
-      removeRows(newSheet, newDataStartIdx, equalCount)
+        if (equalCount > 0) {
+          removeRows(oldSheet, oldDataStartIdx, equalCount)
+          removeRows(newSheet, newDataStartIdx, equalCount)
+        }
+
+        CompareResult(sheetName, equalCount, mismatchRowNum, mismatchKey)
+      }
     }
-
-    CompareResult(sheetName, equalCount, mismatchRowNum, mismatchKey)
   }
 
   private def findFirstMismatch(
-    oldDataRows: List[Row],
-    newDataRows: List[Row],
-    equalCount: Int,
-    dataStartIdx: Int,
-    sheetName: String
-  ): (Option[Int], Option[String]) = {
+                                 oldDataRows: List[Row],
+                                 newDataRows: List[Row],
+                                 equalCount: Int,
+                                 dataStartIdx: Int,
+                                 sheetName: String
+                               ): (Option[Int], Option[String]) = {
     if (equalCount < oldDataRows.size && equalCount < newDataRows.size) {
       val mismatchRow = oldDataRows(equalCount)
       val excelRowNum = dataStartIdx + equalCount + 1
