@@ -1,5 +1,3 @@
-import sbt.librarymanagement.ModuleID
-
 Global / onChangedBuildSource := ReloadOnSourceChanges
 ThisBuild / parallelExecution := false
 
@@ -58,3 +56,7 @@ lazy val `excel-sorter` = project.in(file("."))
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     )
   )
+
+
+addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
+addCommandAlias("fmtCheck", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
