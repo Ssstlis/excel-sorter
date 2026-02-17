@@ -2,16 +2,16 @@ package io.github.ssstlis.excelsorter.processor
 
 import java.io.{File, FileOutputStream}
 
-import io.github.ssstlis.excelsorter.config.TrackConfig
-import io.github.ssstlis.excelsorter.dsl.config.{ColumnSortConfig, SheetSortingConfig}
+import io.github.ssstlis.excelsorter.config.track.TrackConfig
+import io.github.ssstlis.excelsorter.config.sorting.{ColumnSortConfig, SheetSortingConfig}
 import org.apache.poi.ss.usermodel._
 
 import scala.jdk.CollectionConverters._
 
 class SheetSorter(
-  sheetConfigs: Map[String, SheetSortingConfig],
-  trackConfig: TrackConfig = TrackConfig.empty
-) {
+                   sheetConfigs: Map[String, SheetSortingConfig],
+                   trackConfig: TrackConfig = TrackConfig.empty
+                 ) {
 
   def sortFile(inputPath: String): String = {
     val inputFile = new File(inputPath)
@@ -57,37 +57,42 @@ class SheetSorter(
 
   private def sortSheet(sheet: Sheet, config: SheetSortingConfig, sheetIndex: Int): Unit = {
     val rows = sheet.iterator().asScala.toList
-    if (rows.isEmpty) return
+    if (rows.isEmpty) {
+      ()
+    } else {
 
-    val isDataRow = trackConfig.dataRowDetector(sheet.getSheetName, sheetIndex, CellUtils.getRowCellValue)
+      val isDataRow = trackConfig.dataRowDetector(sheet.getSheetName, sheetIndex, CellUtils.getRowCellValue)
 
-    val (headerRows, dataRows) = rows.span(row => !isDataRow(row))
+      val (headerRows, dataRows) = rows.span(row => !isDataRow(row))
 
-    if (dataRows.isEmpty) return
+      if (dataRows.isEmpty) {
+        ()
+      } else {
+        val sortedDataRows = dataRows.sortWith { (rowA, rowB) =>
+          compareRows(rowA, rowB, config.sortConfigs) < 0
+        }
 
-    val sortedDataRows = dataRows.sortWith { (rowA, rowB) =>
-      compareRows(rowA, rowB, config.sortConfigs) < 0
-    }
+        val dataStartIndex = headerRows.size
+        val allRowData = sortedDataRows.map(extractRowData)
 
-    val dataStartIndex = headerRows.size
-    val allRowData = sortedDataRows.map(extractRowData)
+        sortedDataRows.indices.foreach { i =>
+          val targetRowIndex = dataStartIndex + i
+          val existingRow = sheet.getRow(targetRowIndex)
+          if (existingRow != null) {
+            sheet.removeRow(existingRow)
+          }
+        }
 
-    sortedDataRows.indices.foreach { i =>
-      val targetRowIndex = dataStartIndex + i
-      val existingRow = sheet.getRow(targetRowIndex)
-      if (existingRow != null) {
-        sheet.removeRow(existingRow)
-      }
-    }
-
-    allRowData.zipWithIndex.foreach { case (rowData, i) =>
-      val targetRowIndex = dataStartIndex + i
-      val newRow = sheet.createRow(targetRowIndex)
-      rowData.zipWithIndex.foreach { case ((value, cellType, style), colIdx) =>
-        val cell = newRow.createCell(colIdx)
-        setCellValue(cell, value, cellType)
-        if (style != null) {
-          cell.setCellStyle(style)
+        allRowData.zipWithIndex.foreach { case (rowData, i) =>
+          val targetRowIndex = dataStartIndex + i
+          val newRow = sheet.createRow(targetRowIndex)
+          rowData.zipWithIndex.foreach { case ((value, cellType, style), colIdx) =>
+            val cell = newRow.createCell(colIdx)
+            setCellValue(cell, value, cellType)
+            if (style != null) {
+              cell.setCellStyle(style)
+            }
+          }
         }
       }
     }
@@ -134,7 +139,7 @@ class SheetSorter(
     }
   }
 
-  private def compareRows(rowA: Row, rowB: Row, configs: List[ColumnSortConfig[_]]): Int = {
+  private def compareRows(rowA: Row, rowB: Row, configs: List[ColumnSortConfig]): Int = {
     configs.foldLeft(0) { (acc, config) =>
       if (acc != 0) acc
       else {

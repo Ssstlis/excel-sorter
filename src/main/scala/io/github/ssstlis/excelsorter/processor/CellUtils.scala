@@ -78,8 +78,8 @@ object CellUtils {
   ): Boolean = {
     columnMapping.forall { case (oldIdx, newIdx) =>
       ignoredOldColumns.contains(oldIdx) || {
-        val oldVal = Option(oldRow.getCell(oldIdx)).map(getCellValueAsString).getOrElse("")
-        val newVal = Option(newRow.getCell(newIdx)).map(getCellValueAsString).getOrElse("")
+        val oldVal = getRowCellValue(oldRow, oldIdx)
+        val newVal = getRowCellValue(newRow, newIdx)
         oldVal == newVal
       }
     }
@@ -95,8 +95,8 @@ object CellUtils {
     columnMapping.flatMap { case (oldIdx, newIdx) =>
       if (ignoredOldColumns.contains(oldIdx)) None
       else {
-        val oldVal = Option(oldRow.getCell(oldIdx)).map(getCellValueAsString).getOrElse("")
-        val newVal = Option(newRow.getCell(newIdx)).map(getCellValueAsString).getOrElse("")
+        val oldVal = getRowCellValue(oldRow, oldIdx)
+        val newVal = getRowCellValue(newRow, newIdx)
         if (oldVal == newVal) None
         else Some(CellDiff(headerNames.getOrElse(oldIdx, s"Column $oldIdx"), oldIdx, newIdx, oldVal, newVal))
       }
@@ -113,8 +113,8 @@ object CellUtils {
 
     (0 until maxCells).forall { colIdx =>
       ignoredColumns.contains(colIdx) || {
-        val val1 = Option(row1.getCell(colIdx)).map(getCellValueAsString).getOrElse("")
-        val val2 = Option(row2.getCell(colIdx)).map(getCellValueAsString).getOrElse("")
+        val val1 = getRowCellValue(row1, colIdx)
+        val val2 = getRowCellValue(row2, colIdx)
         val1 == val2
       }
     }

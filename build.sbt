@@ -54,7 +54,7 @@ lazy val `excel-sorter` = project.in(file("."))
       "org.apache.poi" % "poi" % "5.5.1",
       "org.apache.poi" % "poi-ooxml" % "5.5.1",
       "com.typesafe" % "config" % "1.4.5",
-      "org.typelevel" %% "cats-core" % "2.9.0",
+      "org.typelevel" %% "cats-core" % "2.13.0",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     )
   )

@@ -1,7 +1,8 @@
 package io.github.ssstlis.excelsorter.processor
 
-import io.github.ssstlis.excelsorter.config.{CompareConfig, TrackConfig}
-import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
+import io.github.ssstlis.excelsorter.config.compare.CompareConfig
+import io.github.ssstlis.excelsorter.config.track.TrackConfig
+import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
 import org.apache.poi.ss.usermodel._
 import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFColor}
 
@@ -226,48 +227,47 @@ class PairedSheetHighlighter(
   }
 
   private def applyBackground(row: Row, workbook: Workbook, styleCache: mutable.Map[(Short, HighlightColor), CellStyle], color: HighlightColor): Unit = {
-    if (row == null) return
+    Option(row).foreach { row =>
+      val lastCellNum = row.getLastCellNum
+      (if (lastCellNum < 0) None else Some(lastCellNum)).foreach { lastCellNum =>
+          (0 until lastCellNum).foreach { colIdx =>
+            Option(row.getCell(colIdx)).foreach { cell =>
+              val originalStyle = cell.getCellStyle
+              val key = (originalStyle.getIndex, color)
+              val coloredStyle = styleCache.getOrElseUpdate(key, {
+                val newStyle = workbook.createCellStyle()
+                newStyle.cloneStyleFrom(originalStyle)
 
-    val lastCellNum = row.getLastCellNum
-    if (lastCellNum < 0) return
+                newStyle.setBorderTop(BorderStyle.THIN)
+                newStyle.setBorderBottom(BorderStyle.THIN)
+                newStyle.setBorderLeft(BorderStyle.THIN)
+                newStyle.setBorderRight(BorderStyle.THIN)
+                newStyle.setTopBorderColor(IndexedColors.BLACK.getIndex)
+                newStyle.setBottomBorderColor(IndexedColors.BLACK.getIndex)
+                newStyle.setLeftBorderColor(IndexedColors.BLACK.getIndex)
+                newStyle.setRightBorderColor(IndexedColors.BLACK.getIndex)
 
-    (0 until lastCellNum).foreach { colIdx =>
-      val cell = row.getCell(colIdx)
-      if (cell != null) {
-        val originalStyle = cell.getCellStyle
-        val key = (originalStyle.getIndex, color)
-        val coloredStyle = styleCache.getOrElseUpdate(key, {
-          val newStyle = workbook.createCellStyle()
-          newStyle.cloneStyleFrom(originalStyle)
-
-          newStyle.setBorderTop(BorderStyle.THIN)
-          newStyle.setBorderBottom(BorderStyle.THIN)
-          newStyle.setBorderLeft(BorderStyle.THIN)
-          newStyle.setBorderRight(BorderStyle.THIN)
-          newStyle.setTopBorderColor(IndexedColors.BLACK.getIndex)
-          newStyle.setBottomBorderColor(IndexedColors.BLACK.getIndex)
-          newStyle.setLeftBorderColor(IndexedColors.BLACK.getIndex)
-          newStyle.setRightBorderColor(IndexedColors.BLACK.getIndex)
-
-          val xssfNew = newStyle.asInstanceOf[XSSFCellStyle]
-          color match {
-            case Green =>
-              xssfNew.setFillForegroundColor(
-                new XSSFColor(Array[Byte](0xE1.toByte, 0xFA.toByte, 0xE1.toByte), null)
-              )
-            case PaleRed =>
-              xssfNew.setFillForegroundColor(
-                new XSSFColor(Array[Byte](0xFF.toByte, 0xCC.toByte, 0xCC.toByte), null)
-              )
-            case PaleOrange =>
-              xssfNew.setFillForegroundColor(
-                new XSSFColor(Array[Byte](0xF5.toByte, 0xE7.toByte, 0x9A.toByte), null)
-              )
+                val xssfNew = newStyle.asInstanceOf[XSSFCellStyle]
+                color match {
+                  case Green =>
+                    xssfNew.setFillForegroundColor(
+                      new XSSFColor(Array[Byte](0xE1.toByte, 0xFA.toByte, 0xE1.toByte), null)
+                    )
+                  case PaleRed =>
+                    xssfNew.setFillForegroundColor(
+                      new XSSFColor(Array[Byte](0xFF.toByte, 0xCC.toByte, 0xCC.toByte), null)
+                    )
+                  case PaleOrange =>
+                    xssfNew.setFillForegroundColor(
+                      new XSSFColor(Array[Byte](0xF5.toByte, 0xE7.toByte, 0x9A.toByte), null)
+                    )
+                }
+                newStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
+                newStyle
+              })
+              cell.setCellStyle(coloredStyle)
+            }
           }
-          newStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
-          newStyle
-        })
-        cell.setCellStyle(coloredStyle)
       }
     }
   }

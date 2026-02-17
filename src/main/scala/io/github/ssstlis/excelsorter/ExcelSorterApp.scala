@@ -1,10 +1,11 @@
 package io.github.ssstlis.excelsorter
 
 import java.io.{File, PrintWriter}
-
 import com.typesafe.config.ConfigFactory
 import io.github.ssstlis.excelsorter.config._
-import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
+import io.github.ssstlis.excelsorter.config.compare.CompareConfig
+import io.github.ssstlis.excelsorter.config.track._
+import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
 import io.github.ssstlis.excelsorter.processor._
 
 import scala.util.{Failure, Success, Try}
@@ -272,13 +273,19 @@ object ExcelSorterApp extends App {
         System.err.println(s"Error: $error")
         printUsage()
       case Right(cliArgs) =>
-        val (sortConfigs, trackConfig, compareConfig) = cliArgs.cliConfig match {
-          case Some(cc) => (cc.sortings, cc.trackConfig, cc.compareConfig)
-          case None =>
-            val config = ConfigFactory.load()
-            (ConfigReader.fromConfig(config), ConfigReader.readTrackConfig(config), ConfigReader.readCompareConfig(config))
+        cliArgs.appConfig.orElse {
+          val config = ConfigFactory.load()
+          AppConfig.readConfigFromFile(config) match {
+            case Right(value) => Some(value)
+            case Left(value) =>
+              System.err.println(value)
+              None
+          }
+        } match {
+          case Some(AppConfig(sortConfig, trackConfig, compareConfig)) =>
+            run(cliArgs.filePaths, sortConfig, cliArgs.mode, trackConfig, compareConfig)
+          case None => ()
         }
-        run(cliArgs.filePaths, sortConfigs, cliArgs.mode, trackConfig, compareConfig)
     }
   }
 }

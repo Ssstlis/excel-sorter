@@ -1,10 +1,14 @@
 package io.github.ssstlis.excelsorter.processor
 
+import cats.data.NonEmptyList
+
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
 import io.github.ssstlis.excelsorter.config._
+import io.github.ssstlis.excelsorter.config.compare._
+import io.github.ssstlis.excelsorter.config.track._
 import io.github.ssstlis.excelsorter.dsl._
-import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
+import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -158,7 +162,7 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       ))
 
       val track = TrackConfig(List(
-        TrackPolicy(SheetSelector.Default, List(
+        TrackPolicy(SheetSelector.Default, NonEmptyList.of(
           TrackCondition(0, _.startsWith("DATA"))
         ))
       ))

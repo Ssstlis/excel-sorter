@@ -1,6 +1,6 @@
 package io.github.ssstlis.excelsorter.dsl
 
-import io.github.ssstlis.excelsorter.dsl.config.{ColumnSortConfig, SheetSortingConfig}
+import io.github.ssstlis.excelsorter.config.sorting.{ColumnSortConfig, SheetSortingConfig}
 
 sealed trait SortOrder
 object SortOrder {
@@ -11,16 +11,18 @@ object SortOrder {
 object SortingDsl {
   import SortOrder._
 
-  def asc[T: Ordering](columnIndex: Int)(parser: String => T): ColumnSortConfig[T] =
-    new ColumnSortConfig(columnIndex, Asc, parser)
+  def asc[T: Ordering](columnIndex: Int)(parser: String => T): ColumnSortConfig =
+    ColumnSortConfig.create(columnIndex, Asc)(parser)
 
-  def desc[T: Ordering](columnIndex: Int)(parser: String => T): ColumnSortConfig[T] =
-    new ColumnSortConfig(columnIndex, Desc, parser)
+  def desc[T: Ordering](columnIndex: Int)(parser: String => T): ColumnSortConfig =
+    ColumnSortConfig.create(columnIndex, Desc)(parser)
 
-  def sheet(name: String)(configs: ColumnSortConfig[_]*): SheetSortingConfig =
+  def sheet(name: String)(configs: ColumnSortConfig*): SheetSortingConfig =
     SheetSortingConfig(name, configs.toList)
 
   object Parsers {
+    final val LocalDatePattern = """LocalDate\((.+)\)""".r
+
     import java.time.LocalDate
     import java.time.format.DateTimeFormatter
 

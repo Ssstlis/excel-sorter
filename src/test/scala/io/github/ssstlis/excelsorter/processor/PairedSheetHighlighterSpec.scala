@@ -1,10 +1,14 @@
 package io.github.ssstlis.excelsorter.processor
 
+import cats.data.NonEmptyList
+
 import java.io.{File, FileOutputStream}
 import java.nio.file.Files
 import io.github.ssstlis.excelsorter.config._
+import io.github.ssstlis.excelsorter.config.compare._
+import io.github.ssstlis.excelsorter.config.track._
 import io.github.ssstlis.excelsorter.dsl._
-import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
+import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
 import org.apache.poi.ss.usermodel.{BorderStyle, FillPatternType, IndexedColors}
 import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFWorkbook}
 import org.scalatest.freespec.AnyFreeSpec
@@ -315,7 +319,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       ))
 
       val track = TrackConfig(List(
-        TrackPolicy(SheetSelector.Default, List(
+        TrackPolicy(SheetSelector.Default, NonEmptyList.of(
           TrackCondition(0, _.startsWith("DATA"))
         ))
       ))
@@ -578,7 +582,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       // Use explicit trackConfig since default checks col 0 for date, which fails for reordered new file
       val headerValues = Set("Date", "Amount", "Note")
       val track = TrackConfig(List(
-        TrackPolicy(SheetSelector.Default, List(
+        TrackPolicy(SheetSelector.Default, NonEmptyList.of(
           TrackCondition(0, v => v.nonEmpty && !headerValues.contains(v))
         ))
       ))

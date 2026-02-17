@@ -106,9 +106,9 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
       result.isRight shouldBe true
       val cliArgs = result.toOption.get
       cliArgs.filePaths shouldBe Seq("file.xlsx")
-      cliArgs.cliConfig shouldBe defined
+      cliArgs.appConfig shouldBe defined
 
-      val cc = cliArgs.cliConfig.get
+      val cc = cliArgs.appConfig.get
       cc.compareConfig.policies should have size 1
       cc.compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("Sheet1")
       cc.compareConfig.policies.head.ignoreColumns shouldBe Set(1, 13)
@@ -120,12 +120,12 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "LocalDate"))
 
       result.isRight shouldBe true
-      val cc = result.toOption.get.cliConfig.get
-      cc.sortings should have size 1
-      cc.sortings.head.sheetName shouldBe "Sheet1"
-      cc.sortings.head.sortConfigs should have size 1
-      cc.sortings.head.sortConfigs.head.columnIndex shouldBe 0
-      cc.sortings.head.sortConfigs.head.order shouldBe SortOrder.Asc
+      val cc = result.toOption.get.appConfig.get
+      cc.sortConfig should have size 1
+      cc.sortConfig.head.sheetName shouldBe "Sheet1"
+      cc.sortConfig.head.sortConfigs should have size 1
+      cc.sortConfig.head.sortConfigs.head.columnIndex shouldBe 0
+      cc.sortConfig.head.sortConfigs.head.order shouldBe SortOrder.Asc
     }
 
     "--conf with --sortings multiple sorts" in {
@@ -133,12 +133,12 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
         "--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "LocalDate", "-sort", "desc", "2", "String"))
 
       result.isRight shouldBe true
-      val cc = result.toOption.get.cliConfig.get
-      cc.sortings.head.sortConfigs should have size 2
-      cc.sortings.head.sortConfigs(0).order shouldBe SortOrder.Asc
-      cc.sortings.head.sortConfigs(0).columnIndex shouldBe 0
-      cc.sortings.head.sortConfigs(1).order shouldBe SortOrder.Desc
-      cc.sortings.head.sortConfigs(1).columnIndex shouldBe 2
+      val cc = result.toOption.get.appConfig.get
+      cc.sortConfig.head.sortConfigs should have size 2
+      cc.sortConfig.head.sortConfigs(0).order shouldBe SortOrder.Asc
+      cc.sortConfig.head.sortConfigs(0).columnIndex shouldBe 0
+      cc.sortConfig.head.sortConfigs(1).order shouldBe SortOrder.Desc
+      cc.sortConfig.head.sortConfigs(1).columnIndex shouldBe 2
     }
 
     // --conf with --tracks
@@ -147,7 +147,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--tracks", "-sheet", "Sheet1", "-cond", "0", "LocalDate"))
 
       result.isRight shouldBe true
-      val cc = result.toOption.get.cliConfig.get
+      val cc = result.toOption.get.appConfig.get
       cc.trackConfig.policies should have size 1
       cc.trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("Sheet1")
       cc.trackConfig.policies.head.conditions should have size 1
@@ -163,8 +163,8 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
         "--comparisons", "-sheet", "Sheet1", "-ic", "5"))
 
       result.isRight shouldBe true
-      val cc = result.toOption.get.cliConfig.get
-      cc.sortings should have size 1
+      val cc = result.toOption.get.appConfig.get
+      cc.sortConfig should have size 1
       cc.trackConfig.policies should have size 1
       cc.compareConfig.policies should have size 1
     }
@@ -175,17 +175,17 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-s", "Sheet1", "-o", "desc", "1", "Int"))
 
       result.isRight shouldBe true
-      val cc = result.toOption.get.cliConfig.get
-      cc.sortings.head.sheetName shouldBe "Sheet1"
-      cc.sortings.head.sortConfigs.head.columnIndex shouldBe 1
-      cc.sortings.head.sortConfigs.head.order shouldBe SortOrder.Desc
+      val cc = result.toOption.get.appConfig.get
+      cc.sortConfig.head.sheetName shouldBe "Sheet1"
+      cc.sortConfig.head.sortConfigs.head.columnIndex shouldBe 1
+      cc.sortConfig.head.sortConfigs.head.order shouldBe SortOrder.Desc
     }
 
     "short flags -s and -d for tracks" in {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--tracks", "-s", "Sheet1", "-d", "2", "Int"))
 
       result.isRight shouldBe true
-      val cc = result.toOption.get.cliConfig.get
+      val cc = result.toOption.get.appConfig.get
       cc.trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("Sheet1")
       cc.trackConfig.policies.head.conditions.head.columnIndex shouldBe 2
     }
@@ -196,7 +196,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--tracks", "-sheet", "default", "-cond", "0", "String"))
 
       result.isRight shouldBe true
-      val cc = result.toOption.get.cliConfig.get
+      val cc = result.toOption.get.appConfig.get
       cc.trackConfig.policies.head.sheetSelector shouldBe SheetSelector.Default
     }
 
@@ -204,7 +204,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--tracks", "-sheet", "0", "-cond", "0", "String"))
 
       result.isRight shouldBe true
-      val cc = result.toOption.get.cliConfig.get
+      val cc = result.toOption.get.appConfig.get
       cc.trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(0)
     }
 
@@ -218,8 +218,8 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
       val cliArgs = result.toOption.get
       cliArgs.mode shouldBe RunMode.Cut
       cliArgs.filePaths shouldBe Seq("old.xlsx", "new.xlsx")
-      cliArgs.cliConfig shouldBe defined
-      cliArgs.cliConfig.get.sortings.head.sheetName shouldBe "Data"
+      cliArgs.appConfig shouldBe defined
+      cliArgs.appConfig.get.sortConfig.head.sheetName shouldBe "Data"
     }
 
     // Error cases

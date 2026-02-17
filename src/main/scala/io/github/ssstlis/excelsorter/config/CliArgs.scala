@@ -1,7 +1,9 @@
 package io.github.ssstlis.excelsorter.config
 
 import cats.syntax.either._
-import io.github.ssstlis.excelsorter.dsl.config.SheetSortingConfig
+import io.github.ssstlis.excelsorter.config.compare.{CompareConfig, ComparePolicy}
+import io.github.ssstlis.excelsorter.config.track.{TrackConfig, TrackPolicy}
+import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
 
 sealed trait RunMode
 object RunMode {
@@ -10,13 +12,7 @@ object RunMode {
   case object Compare extends RunMode
 }
 
-case class CliConfig(
-  sortings: Seq[SheetSortingConfig],
-  trackConfig: TrackConfig,
-  compareConfig: CompareConfig
-)
-
-case class CliArgs(mode: RunMode, filePaths: Seq[String], cliConfig: Option[CliConfig])
+case class CliArgs(mode: RunMode, filePaths: Seq[String], appConfig: Option[AppConfig])
 
 object CliArgs {
 
@@ -25,6 +21,7 @@ object CliArgs {
   private val helpFlags = Set("-h", "--help")
   private val modeFlags = cutFlags ++ compareFlags
   private val confFlag = "--conf"
+  private val blockStarters = Set("--sortings", "--tracks", "--comparisons")
 
   def parse(args: Array[String]): Either[String, CliArgs] = {
     val argList = args.toList
@@ -74,11 +71,11 @@ object CliArgs {
     Right(CliArgs(mode, files, cliConfig))
   }
 
-  private def parseConfSection(args: List[String]): Either[String, CliConfig] = {
+  private def parseConfSection(args: List[String]): Either[String, AppConfig] = {
     val blocks = splitIntoBlocks(args)
 
     if (blocks.isEmpty) {
-      Left("--conf requires at least one configuration block (--sortings, --tracks, or --comparisons).")
+      Left(s"--conf requires at least one configuration block (${blockStarters.mkString(", ")}).")
     } else {
       blocks.foldLeft(Either.right[String, (List[SheetSortingConfig], List[TrackPolicy], List[ComparePolicy])](Nil, Nil, Nil)) {
         case (acc, (blockType, blockArgs)) =>
@@ -96,11 +93,11 @@ object CliArgs {
                 ComparePolicy.parseComparisonsBlock(blockArgs).map { policy =>
                   acc.copy(_3 = policy :: comparePolicies)
                 }
-              case other => Left(s"Unknown config block type: '$other'. Expected --sortings, --tracks, or --comparisons.")
+              case other => Left(s"Unknown config block type: '$other'. Expected one of (${blockStarters.mkString("'", "', '", "'")}).")
             }
           }
       }.map { case (sortings, trackPolicies, comparePolicies) =>
-        CliConfig(
+        AppConfig(
           sortings.reverse,
           TrackConfig(trackPolicies.reverse),
           CompareConfig(comparePolicies.reverse)
@@ -110,7 +107,6 @@ object CliArgs {
   }
 
   private def splitIntoBlocks(args: List[String]): List[(String, List[String])] = {
-    val blockStarters = Set("--sortings", "--tracks", "--comparisons")
     val result = List.newBuilder[(String, List[String])]
     var currentType: String = null
     var currentArgs = List.newBuilder[String]
