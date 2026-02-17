@@ -4,9 +4,9 @@ import com.typesafe.config.{Config, ConfigValueType}
 
 sealed trait SheetSelector
 object SheetSelector {
-  case object Default extends SheetSelector
+  case object Default             extends SheetSelector
   case class ByName(name: String) extends SheetSelector
-  case class ByIndex(index: Int) extends SheetSelector
+  case class ByIndex(index: Int)  extends SheetSelector
 
   def parseSheetSelector(value: String): SheetSelector = {
     if (value == "default") {
@@ -30,9 +30,7 @@ object SheetSelector {
         case ConfigValueType.STRING =>
           Right(SheetSelector.ByName(config.getString("sheet")))
         case other =>
-          Left(
-            s"Invalid sheet selector type: $other. Expected null, string, or number."
-          )
+          Left(s"Invalid sheet selector type: $other. Expected null, string, or number.")
       }
     }
   }

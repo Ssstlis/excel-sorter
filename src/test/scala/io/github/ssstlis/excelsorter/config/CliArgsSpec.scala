@@ -117,7 +117,8 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
     // --conf with --sortings
 
     "--conf with --sortings block" in {
-      val result = CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "LocalDate"))
+      val result =
+        CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "LocalDate"))
 
       result.isRight shouldBe true
       val cc = result.toOption.get.appConfig.get
@@ -129,8 +130,23 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
     }
 
     "--conf with --sortings multiple sorts" in {
-      val result = CliArgs.parse(Array("file.xlsx", "--conf",
-        "--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "LocalDate", "-sort", "desc", "2", "String"))
+      val result = CliArgs.parse(
+        Array(
+          "file.xlsx",
+          "--conf",
+          "--sortings",
+          "-sheet",
+          "Sheet1",
+          "-sort",
+          "asc",
+          "0",
+          "LocalDate",
+          "-sort",
+          "desc",
+          "2",
+          "String"
+        )
+      )
 
       result.isRight shouldBe true
       val cc = result.toOption.get.appConfig.get
@@ -144,7 +160,8 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
     // --conf with --tracks
 
     "--conf with --tracks block" in {
-      val result = CliArgs.parse(Array("file.xlsx", "--conf", "--tracks", "-sheet", "Sheet1", "-cond", "0", "LocalDate"))
+      val result =
+        CliArgs.parse(Array("file.xlsx", "--conf", "--tracks", "-sheet", "Sheet1", "-cond", "0", "LocalDate"))
 
       result.isRight shouldBe true
       val cc = result.toOption.get.appConfig.get
@@ -157,10 +174,30 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
     // Multiple blocks of different types
 
     "--conf with multiple blocks of different types" in {
-      val result = CliArgs.parse(Array("file.xlsx", "--conf",
-        "--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "String",
-        "--tracks", "-sheet", "default", "-cond", "0", "LocalDate",
-        "--comparisons", "-sheet", "Sheet1", "-ic", "5"))
+      val result = CliArgs.parse(
+        Array(
+          "file.xlsx",
+          "--conf",
+          "--sortings",
+          "-sheet",
+          "Sheet1",
+          "-sort",
+          "asc",
+          "0",
+          "String",
+          "--tracks",
+          "-sheet",
+          "default",
+          "-cond",
+          "0",
+          "LocalDate",
+          "--comparisons",
+          "-sheet",
+          "Sheet1",
+          "-ic",
+          "5"
+        )
+      )
 
       result.isRight shouldBe true
       val cc = result.toOption.get.appConfig.get
@@ -211,8 +248,9 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
     // Mode flag + files + --conf combined
 
     "mode flag + files + --conf combined" in {
-      val result = CliArgs.parse(Array("-c", "old.xlsx", "new.xlsx", "--conf",
-        "--sortings", "-sheet", "Data", "-sort", "asc", "0", "String"))
+      val result = CliArgs.parse(
+        Array("-c", "old.xlsx", "new.xlsx", "--conf", "--sortings", "-sheet", "Data", "-sort", "asc", "0", "String")
+      )
 
       result.isRight shouldBe true
       val cliArgs = result.toOption.get
@@ -239,14 +277,16 @@ class CliArgsSpec extends AnyFreeSpec with Matchers {
     }
 
     "error: invalid sort order" in {
-      val result = CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sheet", "S", "-sort", "invalid", "0", "String"))
+      val result =
+        CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sheet", "S", "-sort", "invalid", "0", "String"))
 
       result.isLeft shouldBe true
       result.left.getOrElse("") should include("Unknown sort order")
     }
 
     "error: invalid parser type in sortings" in {
-      val result = CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sheet", "S", "-sort", "asc", "0", "BadType"))
+      val result =
+        CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sheet", "S", "-sort", "asc", "0", "BadType"))
 
       result.isLeft shouldBe true
       result.left.getOrElse("") should include("Unknown parser type")

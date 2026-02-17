@@ -14,8 +14,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row = sheet.createRow(0)
-          val cell = row.createCell(0)
+          val row   = sheet.createRow(0)
+          val cell  = row.createCell(0)
           cell.setCellValue("hello")
 
           CellUtils.getCellValueAsString(cell) shouldBe "hello"
@@ -28,8 +28,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row = sheet.createRow(0)
-          val cell = row.createCell(0)
+          val row   = sheet.createRow(0)
+          val cell  = row.createCell(0)
           cell.setCellValue(42.0)
 
           CellUtils.getCellValueAsString(cell) shouldBe "42"
@@ -42,8 +42,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row = sheet.createRow(0)
-          val cell = row.createCell(0)
+          val row   = sheet.createRow(0)
+          val cell  = row.createCell(0)
           cell.setCellValue(3.14)
 
           CellUtils.getCellValueAsString(cell) shouldBe "3.14"
@@ -56,8 +56,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row = sheet.createRow(0)
-          val cell = row.createCell(0)
+          val row   = sheet.createRow(0)
+          val cell  = row.createCell(0)
           cell.setCellValue(true)
 
           CellUtils.getCellValueAsString(cell) shouldBe "true"
@@ -70,8 +70,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row = sheet.createRow(0)
-          val cell = row.createCell(0)
+          val row   = sheet.createRow(0)
+          val cell  = row.createCell(0)
           cell.setBlank()
 
           CellUtils.getCellValueAsString(cell) shouldBe ""
@@ -87,7 +87,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row = sheet.createRow(0)
+          val row   = sheet.createRow(0)
           row.createCell(0).setCellValue("exists")
 
           CellUtils.getRowCellValue(row, 5) shouldBe ""
@@ -100,7 +100,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row = sheet.createRow(0)
+          val row   = sheet.createRow(0)
           row.createCell(0).setCellValue("value")
 
           CellUtils.getRowCellValue(row, 0) shouldBe "value"
@@ -116,7 +116,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row1 = sheet.createRow(0)
+          val row1  = sheet.createRow(0)
           row1.createCell(0).setCellValue("a")
           row1.createCell(1).setCellValue("b")
 
@@ -134,7 +134,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row1 = sheet.createRow(0)
+          val row1  = sheet.createRow(0)
           row1.createCell(0).setCellValue("a")
 
           val row2 = sheet.createRow(1)
@@ -150,7 +150,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row1 = sheet.createRow(0)
+          val row1  = sheet.createRow(0)
           row1.createCell(0).setCellValue("a")
           row1.createCell(1).setCellValue("b")
 
@@ -167,8 +167,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row1 = sheet.createRow(0)
-          val row2 = sheet.createRow(1)
+          val row1  = sheet.createRow(0)
+          val row2  = sheet.createRow(1)
 
           CellUtils.rowsAreEqual(row1, row2) shouldBe true
         } finally {
@@ -180,7 +180,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row1 = sheet.createRow(0)
+          val row1  = sheet.createRow(0)
           row1.createCell(0).setCellValue("same")
           row1.createCell(1).setCellValue("diff-old")
           row1.createCell(2).setCellValue("same")
@@ -201,7 +201,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row1 = sheet.createRow(0)
+          val row1  = sheet.createRow(0)
           row1.createCell(0).setCellValue("a")
           row1.createCell(1).setCellValue("same")
           row1.createCell(2).setCellValue("c")
@@ -221,7 +221,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
         val wb = new XSSFWorkbook()
         try {
           val sheet = wb.createSheet("Test")
-          val row1 = sheet.createRow(0)
+          val row1  = sheet.createRow(0)
           row1.createCell(0).setCellValue("same")
           row1.createCell(1).setCellValue("diff1")
           row1.createCell(2).setCellValue("diff2")
@@ -268,7 +268,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
       "should return false when mapped columns differ" in {
         val wb = new XSSFWorkbook()
         try {
-          val sheet = wb.createSheet("Test")
+          val sheet  = wb.createSheet("Test")
           val oldRow = sheet.createRow(0)
           oldRow.createCell(0).setCellValue("A")
           oldRow.createCell(1).setCellValue("B")
@@ -287,7 +287,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
       "should respect ignoredColumns" in {
         val wb = new XSSFWorkbook()
         try {
-          val sheet = wb.createSheet("Test")
+          val sheet  = wb.createSheet("Test")
           val oldRow = sheet.createRow(0)
           oldRow.createCell(0).setCellValue("same")
           oldRow.createCell(1).setCellValue("old-val")
@@ -307,7 +307,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
       "should return true for empty mapping" in {
         val wb = new XSSFWorkbook()
         try {
-          val sheet = wb.createSheet("Test")
+          val sheet  = wb.createSheet("Test")
           val oldRow = sheet.createRow(0)
           oldRow.createCell(0).setCellValue("A")
           val newRow = sheet.createRow(1)
@@ -325,7 +325,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
       "should return correct diffs for differing cells" in {
         val wb = new XSSFWorkbook()
         try {
-          val sheet = wb.createSheet("Test")
+          val sheet  = wb.createSheet("Test")
           val oldRow = sheet.createRow(0)
           oldRow.createCell(0).setCellValue("same")
           oldRow.createCell(1).setCellValue("old-val")
@@ -351,7 +351,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
       "should return empty list for equal rows" in {
         val wb = new XSSFWorkbook()
         try {
-          val sheet = wb.createSheet("Test")
+          val sheet  = wb.createSheet("Test")
           val oldRow = sheet.createRow(0)
           oldRow.createCell(0).setCellValue("same")
           oldRow.createCell(1).setCellValue("same2")
@@ -372,7 +372,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
       "should skip ignored columns" in {
         val wb = new XSSFWorkbook()
         try {
-          val sheet = wb.createSheet("Test")
+          val sheet  = wb.createSheet("Test")
           val oldRow = sheet.createRow(0)
           oldRow.createCell(0).setCellValue("same")
           oldRow.createCell(1).setCellValue("old-val")
@@ -393,7 +393,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
       "should handle remapped columns" in {
         val wb = new XSSFWorkbook()
         try {
-          val sheet = wb.createSheet("Test")
+          val sheet  = wb.createSheet("Test")
           val oldRow = sheet.createRow(0)
           oldRow.createCell(0).setCellValue("A")
           oldRow.createCell(1).setCellValue("B")

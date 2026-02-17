@@ -13,18 +13,17 @@ import scala.util.Try
 
 case class TrackConfig(policies: List[TrackPolicy]) extends SelectedPolicies[TrackPolicy] {
 
-  def dataRowDetector(sheetName: String, sheetIndex: Int, getCellValue: (Row, Int) => String): Row => Boolean = {
-    row =>
-      matchingPolicy(sheetName, sheetIndex) match {
-        case Some(policy) =>
-          policy.conditions.forall { cond =>
-            val value = getCellValue(row, cond.columnIndex)
-            cond.validator(value)
-          }
-        case None =>
-          val value = getCellValue(row, 0)
-          TrackConfig.defaultDateValidator(value)
-      }
+  def dataRowDetector(sheetName: String, sheetIndex: Int, getCellValue: (Row, Int) => String): Row => Boolean = { row =>
+    matchingPolicy(sheetName, sheetIndex) match {
+      case Some(policy) =>
+        policy.conditions.forall { cond =>
+          val value = getCellValue(row, cond.columnIndex)
+          cond.validator(value)
+        }
+      case None =>
+        val value = getCellValue(row, 0)
+        TrackConfig.defaultDateValidator(value)
+    }
   }
 }
 
@@ -53,7 +52,7 @@ object TrackConfig {
       Right(TrackConfig.empty)
     } else {
       val trackList = config.getConfigList("tracks").asScala.toList
-      val policies = trackList.traverse(TrackPolicy.parseTrackPolicy)
+      val policies  = trackList.traverse(TrackPolicy.parseTrackPolicy)
       policies.map(p => TrackConfig(p.flatten))
     }
   }

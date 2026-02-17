@@ -19,12 +19,19 @@ object ComparePolicy {
   }
 
   def parseComparisonsBlock(args: List[String]): Either[String, ComparePolicy] = {
-    parseSheetName(args).flatMap { case (sheet, rest) =>
-      val selector = SheetSelector.parseSheetSelector(sheet)
-      parseIgnoreColumns(rest).flatMap { ignoreColumns =>
-        Either.cond(ignoreColumns.nonEmpty, ComparePolicy(selector, ignoreColumns), "at least one column index after -ic is required.")
+    parseSheetName(args)
+      .flatMap { case (sheet, rest) =>
+        val selector = SheetSelector.parseSheetSelector(sheet)
+        parseIgnoreColumns(rest).flatMap { ignoreColumns =>
+          Either.cond(
+            ignoreColumns.nonEmpty,
+            ComparePolicy(selector, ignoreColumns),
+            "at least one column index after -ic is required."
+          )
+        }
       }
-    }.left.map(err => s"--comparisons: $err")
+      .left
+      .map(err => s"--comparisons: $err")
   }
 
   private def parseIgnoreColumns(args: List[String]): Either[String, Set[Int]] = {
@@ -32,9 +39,11 @@ object ComparePolicy {
       case "-ic" :: Nil =>
         Left("-ic requires at least one column index.")
       case "-ic" :: tail =>
-        tail.traverse { s =>
-          s.toIntOption.toRight(s"Invalid column index after -ic: '$s'. Expected an integer.")
-        }.map(_.toSet)
+        tail
+          .traverse { s =>
+            s.toIntOption.toRight(s"Invalid column index after -ic: '$s'. Expected an integer.")
+          }
+          .map(_.toSet)
       case Nil =>
         Left("Expected -ic flag.")
       case other :: _ =>

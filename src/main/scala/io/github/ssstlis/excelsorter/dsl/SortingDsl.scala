@@ -4,17 +4,17 @@ import io.github.ssstlis.excelsorter.config.sorting.{ColumnSortConfig, SheetSort
 
 sealed trait SortOrder
 object SortOrder {
-  case object Asc extends SortOrder
+  case object Asc  extends SortOrder
   case object Desc extends SortOrder
 }
 
 object SortingDsl {
   import SortOrder._
 
-  def asc[T: Ordering](columnIndex: Int)(parser: String => T): ColumnSortConfig =
+  def asc[T : Ordering](columnIndex: Int)(parser: String => T): ColumnSortConfig =
     ColumnSortConfig.create(columnIndex, Asc)(parser)
 
-  def desc[T: Ordering](columnIndex: Int)(parser: String => T): ColumnSortConfig =
+  def desc[T : Ordering](columnIndex: Int)(parser: String => T): ColumnSortConfig =
     ColumnSortConfig.create(columnIndex, Desc)(parser)
 
   def sheet(name: String)(configs: ColumnSortConfig*): SheetSortingConfig =
@@ -28,10 +28,10 @@ object SortingDsl {
 
     implicit val localDateOrdering: Ordering[LocalDate] = Ordering.fromLessThan(_ isBefore _)
 
-    val asString: String => String = identity
-    val asInt: String => Int = _.toInt
-    val asLong: String => Long = _.toLong
-    val asDouble: String => Double = _.toDouble
+    val asString: String => String         = identity
+    val asInt: String => Int               = _.toInt
+    val asLong: String => Long             = _.toLong
+    val asDouble: String => Double         = _.toDouble
     val asBigDecimal: String => BigDecimal = BigDecimal(_)
 
     def asLocalDate(pattern: String): String => LocalDate = { s =>

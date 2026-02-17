@@ -8,13 +8,10 @@ import org.apache.poi.ss.usermodel._
 
 import scala.jdk.CollectionConverters._
 
-class SheetSorter(
-                   sheetConfigs: Map[String, SheetSortingConfig],
-                   trackConfig: TrackConfig = TrackConfig.empty
-                 ) {
+class SheetSorter(sheetConfigs: Map[String, SheetSortingConfig], trackConfig: TrackConfig = TrackConfig.empty) {
 
   def sortFile(inputPath: String): String = {
-    val inputFile = new File(inputPath)
+    val inputFile  = new File(inputPath)
     val outputPath = buildOutputPath(inputPath)
 
     val workbook = WorkbookFactory.create(inputFile)
@@ -37,7 +34,7 @@ class SheetSorter(
     val lastDot = inputPath.lastIndexOf('.')
     if (lastDot > 0) {
       val base = inputPath.substring(0, lastDot)
-      val ext = inputPath.substring(lastDot)
+      val ext  = inputPath.substring(lastDot)
       s"${base}_sorted$ext"
     } else {
       s"${inputPath}_sorted"
@@ -46,11 +43,11 @@ class SheetSorter(
 
   private def sortWorkbook(workbook: Workbook): Unit = {
     for (i <- 0 until workbook.getNumberOfSheets) {
-      val sheet = workbook.getSheetAt(i)
+      val sheet     = workbook.getSheetAt(i)
       val sheetName = sheet.getSheetName
       sheetConfigs.get(sheetName) match {
         case Some(config) => sortSheet(sheet, config, i)
-        case _ => System.err.println(s"No config for $sheetName")
+        case _            => System.err.println(s"No config for $sheetName")
       }
     }
   }
@@ -73,11 +70,11 @@ class SheetSorter(
         }
 
         val dataStartIndex = headerRows.size
-        val allRowData = sortedDataRows.map(extractRowData)
+        val allRowData     = sortedDataRows.map(extractRowData)
 
         sortedDataRows.indices.foreach { i =>
           val targetRowIndex = dataStartIndex + i
-          val existingRow = sheet.getRow(targetRowIndex)
+          val existingRow    = sheet.getRow(targetRowIndex)
           if (existingRow != null) {
             sheet.removeRow(existingRow)
           }
@@ -85,7 +82,7 @@ class SheetSorter(
 
         allRowData.zipWithIndex.foreach { case (rowData, i) =>
           val targetRowIndex = dataStartIndex + i
-          val newRow = sheet.createRow(targetRowIndex)
+          val newRow         = sheet.createRow(targetRowIndex)
           rowData.zipWithIndex.foreach { case ((value, cellType, style), colIdx) =>
             val cell = newRow.createCell(colIdx)
             setCellValue(cell, value, cellType)
@@ -110,12 +107,12 @@ class SheetSorter(
           case CellType.NUMERIC =>
             if (DateUtil.isCellDateFormatted(cell)) cell.getDateCellValue
             else cell.getNumericCellValue
-          case CellType.STRING => cell.getStringCellValue
+          case CellType.STRING  => cell.getStringCellValue
           case CellType.BOOLEAN => cell.getBooleanCellValue
           case CellType.FORMULA => cell.getCellFormula
-          case CellType.BLANK => null
-          case CellType.ERROR => cell.getErrorCellValue
-          case _ => null
+          case CellType.BLANK   => null
+          case CellType.ERROR   => cell.getErrorCellValue
+          case _                => null
         }
         (value, cell.getCellType, cell.getCellStyle)
       }
@@ -127,13 +124,13 @@ class SheetSorter(
       cell.setBlank()
     } else {
       (value, originalType) match {
-        case (d: java.util.Date, _) => cell.setCellValue(d)
+        case (d: java.util.Date, _)              => cell.setCellValue(d)
         case (e: java.lang.Byte, CellType.ERROR) => cell.setCellErrorValue(e)
-        case (n: Number, _) => cell.setCellValue(n.doubleValue())
-        case (b: java.lang.Boolean, _) => cell.setCellValue(b)
-        case (s: String, CellType.FORMULA) => cell.setCellFormula(s)
-        case (s: String, _) => cell.setCellValue(s)
-        case (other, _) => cell.setCellValue(other.toString)
+        case (n: Number, _)                      => cell.setCellValue(n.doubleValue())
+        case (b: java.lang.Boolean, _)           => cell.setCellValue(b)
+        case (s: String, CellType.FORMULA)       => cell.setCellFormula(s)
+        case (s: String, _)                      => cell.setCellValue(s)
+        case (other, _)                          => cell.setCellValue(other.toString)
       }
     }
   }

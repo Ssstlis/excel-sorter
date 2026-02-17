@@ -21,7 +21,8 @@ object CompareConfig {
     if (!config.hasPath("comparisons")) {
       Right(CompareConfig.empty)
     } else {
-      config.getConfigList("comparisons")
+      config
+        .getConfigList("comparisons")
         .asScala
         .toList
         .traverse(ComparePolicy.parseComparePolicy)

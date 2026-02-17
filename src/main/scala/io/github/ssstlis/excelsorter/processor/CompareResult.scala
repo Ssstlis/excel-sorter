@@ -15,20 +15,9 @@ case class ColumnMapping(
   newKeyIndices: List[Int]
 )
 
-case class CellDiff(
-  columnName: String,
-  oldColumnIndex: Int,
-  newColumnIndex: Int,
-  oldValue: String,
-  newValue: String
-)
+case class CellDiff(columnName: String, oldColumnIndex: Int, newColumnIndex: Int, oldValue: String, newValue: String)
 
-case class RowDiff(
-  key: String,
-  oldRowNum: Int,
-  newRowNum: Int,
-  cellDiffs: List[CellDiff]
-)
+case class RowDiff(key: String, oldRowNum: Int, newRowNum: Int, cellDiffs: List[CellDiff])
 
 case class HighlightResult(
   sheetName: String,

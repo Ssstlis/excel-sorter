@@ -60,7 +60,7 @@ class PairedSheetCutter(
       CompareResult(sheetName, 0, None, None)
     } else {
 
-      val isDataRow = trackConfig.dataRowDetector(sheetName, sheetIndex, CellUtils.getRowCellValue)
+      val isDataRow   = trackConfig.dataRowDetector(sheetName, sheetIndex, CellUtils.getRowCellValue)
       val ignoredCols = compareConfig.ignoredColumns(sheetName, sheetIndex)
 
       val oldDataStartIdx = oldRows.indexWhere(isDataRow)
@@ -73,13 +73,15 @@ class PairedSheetCutter(
         val oldDataRows = oldRows.drop(oldDataStartIdx)
         val newDataRows = newRows.drop(newDataStartIdx)
 
-        val equalCount = oldDataRows.zip(newDataRows).takeWhile { case (oldRow, newRow) =>
-          CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)
-        }.size
+        val equalCount = oldDataRows
+          .zip(newDataRows)
+          .takeWhile { case (oldRow, newRow) =>
+            CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)
+          }
+          .size
 
-        val (mismatchRowNum, mismatchKey) = findFirstMismatch(
-          oldDataRows, newDataRows, equalCount, oldDataStartIdx, sheetName
-        )
+        val (mismatchRowNum, mismatchKey) =
+          findFirstMismatch(oldDataRows, newDataRows, equalCount, oldDataStartIdx, sheetName)
 
         if (equalCount > 0) {
           removeRows(oldSheet, oldDataStartIdx, equalCount)
@@ -92,16 +94,16 @@ class PairedSheetCutter(
   }
 
   private def findFirstMismatch(
-                                 oldDataRows: List[Row],
-                                 newDataRows: List[Row],
-                                 equalCount: Int,
-                                 dataStartIdx: Int,
-                                 sheetName: String
-                               ): (Option[Int], Option[String]) = {
+    oldDataRows: List[Row],
+    newDataRows: List[Row],
+    equalCount: Int,
+    dataStartIdx: Int,
+    sheetName: String
+  ): (Option[Int], Option[String]) = {
     if (equalCount < oldDataRows.size && equalCount < newDataRows.size) {
       val mismatchRow = oldDataRows(equalCount)
       val excelRowNum = dataStartIdx + equalCount + 1
-      val key = extractKey(mismatchRow, sheetName)
+      val key         = extractKey(mismatchRow, sheetName)
       (Some(excelRowNum), Some(key))
     } else {
       (None, None)
@@ -111,7 +113,7 @@ class PairedSheetCutter(
   private def extractKey(row: Row, sheetName: String): String = {
     val keyColumns = sortConfigsMap.get(sheetName) match {
       case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
-      case _ => List(0)
+      case _                                     => List(0)
     }
     keyColumns.map(col => CellUtils.getRowCellValue(row, col)).mkString(", ")
   }

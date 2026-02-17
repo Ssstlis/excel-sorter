@@ -10,17 +10,16 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
   "SheetSortingConfig.readSortConfig" - {
 
     "should parse a simple config with one sheet and one sort" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "Sheet1"
-          |    sorts: [
-          |      {order: "asc", index: 0, as: "String"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "Sheet1"
+                                               |    sorts: [
+                                               |      {order: "asc", index: 0, as: "String"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val preResult = SheetSortingConfig.readSortConfig(config)
       preResult shouldBe a[Right[_, _]]
@@ -34,17 +33,16 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
     }
 
     "should parse desc order" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "Sheet1"
-          |    sorts: [
-          |      {order: "desc", index: 3, as: "Int"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "Sheet1"
+                                               |    sorts: [
+                                               |      {order: "desc", index: 3, as: "Int"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val preResult = SheetSortingConfig.readSortConfig(config)
       preResult shouldBe a[Right[_, _]]
@@ -55,23 +53,22 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
     }
 
     "should parse all supported parser types" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "AllTypes"
-          |    sorts: [
-          |      {order: "asc", index: 0, as: "String"},
-          |      {order: "asc", index: 1, as: "Int"},
-          |      {order: "asc", index: 2, as: "Long"},
-          |      {order: "asc", index: 3, as: "Double"},
-          |      {order: "asc", index: 4, as: "BigDecimal"},
-          |      {order: "asc", index: 5, as: "LocalDate"},
-          |      {order: "asc", index: 6, as: "LocalDate(dd.MM.yyyy)"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "AllTypes"
+                                               |    sorts: [
+                                               |      {order: "asc", index: 0, as: "String"},
+                                               |      {order: "asc", index: 1, as: "Int"},
+                                               |      {order: "asc", index: 2, as: "Long"},
+                                               |      {order: "asc", index: 3, as: "Double"},
+                                               |      {order: "asc", index: 4, as: "BigDecimal"},
+                                               |      {order: "asc", index: 5, as: "LocalDate"},
+                                               |      {order: "asc", index: 6, as: "LocalDate(dd.MM.yyyy)"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val preResult = SheetSortingConfig.readSortConfig(config)
       preResult shouldBe a[Right[_, _]]
@@ -90,24 +87,23 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
     }
 
     "should parse multiple sheets" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "First"
-          |    sorts: [
-          |      {order: "asc", index: 0, as: "LocalDate"}
-          |    ]
-          |  },
-          |  {
-          |    name: "Second"
-          |    sorts: [
-          |      {order: "desc", index: 1, as: "String"},
-          |      {order: "asc", index: 2, as: "Int"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "First"
+                                               |    sorts: [
+                                               |      {order: "asc", index: 0, as: "LocalDate"}
+                                               |    ]
+                                               |  },
+                                               |  {
+                                               |    name: "Second"
+                                               |    sorts: [
+                                               |      {order: "desc", index: 1, as: "String"},
+                                               |      {order: "asc", index: 2, as: "Int"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val preResult = SheetSortingConfig.readSortConfig(config)
       preResult shouldBe a[Right[_, _]]
@@ -121,17 +117,16 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
     }
 
     "should throw on unknown parser type" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "Bad"
-          |    sorts: [
-          |      {order: "asc", index: 0, as: "Unknown"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "Bad"
+                                               |    sorts: [
+                                               |      {order: "asc", index: 0, as: "Unknown"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val result = SheetSortingConfig.readSortConfig(config)
       result shouldBe a[Left[_, _]]
@@ -139,17 +134,16 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
     }
 
     "should throw on unknown sort order" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "Bad"
-          |    sorts: [
-          |      {order: "sideways", index: 0, as: "String"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "Bad"
+                                               |    sorts: [
+                                               |      {order: "sideways", index: 0, as: "String"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val result = SheetSortingConfig.readSortConfig(config)
       result shouldBe a[Left[_, _]]
@@ -157,21 +151,20 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
     }
 
     "should correctly parse parsers that can compare values" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "Sheet1"
-          |    sorts: [
-          |      {order: "asc", index: 0, as: "Int"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "Sheet1"
+                                               |    sorts: [
+                                               |      {order: "asc", index: 0, as: "Int"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val preResult = SheetSortingConfig.readSortConfig(config)
       preResult shouldBe a[Right[_, _]]
-      val result = preResult.toOption.get
+      val result     = preResult.toOption.get
       val sortConfig = result.head.sortConfigs.head
 
       sortConfig.compare("1", "2") should be < 0
@@ -180,21 +173,20 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
     }
 
     "should correctly apply desc ordering" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "Sheet1"
-          |    sorts: [
-          |      {order: "desc", index: 0, as: "Int"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "Sheet1"
+                                               |    sorts: [
+                                               |      {order: "desc", index: 0, as: "Int"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val preResult = SheetSortingConfig.readSortConfig(config)
       preResult shouldBe a[Right[_, _]]
-      val result = preResult.toOption.get
+      val result     = preResult.toOption.get
       val sortConfig = result.head.sortConfigs.head
 
       sortConfig.compare("1", "2") should be > 0
@@ -202,21 +194,20 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers {
     }
 
     "should parse LocalDate with custom pattern and compare correctly" in {
-      val config = ConfigFactory.parseString(
-        """
-          |sortings: [
-          |  {
-          |    name: "Sheet1"
-          |    sorts: [
-          |      {order: "asc", index: 0, as: "LocalDate(dd.MM.yyyy)"}
-          |    ]
-          |  }
-          |]
-          |""".stripMargin)
+      val config = ConfigFactory.parseString("""
+                                               |sortings: [
+                                               |  {
+                                               |    name: "Sheet1"
+                                               |    sorts: [
+                                               |      {order: "asc", index: 0, as: "LocalDate(dd.MM.yyyy)"}
+                                               |    ]
+                                               |  }
+                                               |]
+                                               |""".stripMargin)
 
       val preResult = SheetSortingConfig.readSortConfig(config)
       preResult shouldBe a[Right[_, _]]
-      val result = preResult.toOption.get
+      val result     = preResult.toOption.get
       val sortConfig = result.head.sortConfigs.head
 
       sortConfig.compare("01.01.2024", "15.06.2024") should be < 0

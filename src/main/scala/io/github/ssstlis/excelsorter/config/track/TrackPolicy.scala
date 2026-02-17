@@ -13,7 +13,8 @@ case class TrackPolicy(sheetSelector: SheetSelector, conditions: NonEmptyList[Tr
 object TrackPolicy {
   def parseTrackPolicy(trackConfig: Config): Either[String, Option[TrackPolicy]] = {
     SheetSelector.parseSheetSelector(trackConfig).flatMap { sheetSelector =>
-      trackConfig.getConfigList("conditions")
+      trackConfig
+        .getConfigList("conditions")
         .asScala
         .toList
         .traverse(TrackCondition.parseTrackCondition)
@@ -26,8 +27,8 @@ object TrackPolicy {
       val selector = SheetSelector.parseSheetSelector(sheetName)
       TrackCondition.parseCondEntries(rest).map(list => (selector, NonEmptyList.fromList(list)))
     } match {
-      case Left(err) => Left(s"--tracks: $err")
-      case Right((_, None)) => Left("--tracks: at least one -cond/-d entry is required.")
+      case Left(err)                           => Left(s"--tracks: $err")
+      case Right((_, None))                    => Left("--tracks: at least one -cond/-d entry is required.")
       case Right((selector, Some(conditions))) => Right(TrackPolicy(selector, conditions))
     }
   }

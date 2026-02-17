@@ -13,7 +13,7 @@ case class TrackCondition(columnIndex: Int, validator: String => Boolean)
 object TrackCondition {
   def parseTrackCondition(condConfig: Config): Either[String, TrackCondition] = {
     val index = condConfig.getInt("index")
-    val as = condConfig.getString("as")
+    val as    = condConfig.getString("as")
     resolveTrackValidator(as).map(TrackCondition(index, _))
   }
 
@@ -46,8 +46,7 @@ object TrackCondition {
     def rec(rest: List[String], result: List[TrackCondition]): Either[String, List[TrackCondition]] = {
       rest match {
         case flag :: idxStr :: asType :: tail if condFlags.contains(flag) =>
-          idxStr
-            .toIntOption
+          idxStr.toIntOption
             .toRight(s"Invalid column index: '$idxStr'. Expected an integer.")
             .flatMap { index =>
               resolveTrackValidator(asType).map { validator =>
@@ -55,12 +54,12 @@ object TrackCondition {
               }
             } match {
             case Right(trackCondition) => rec(tail, trackCondition :: result)
-            case Left(err) => Left(err)
+            case Left(err)             => Left(err)
           }
         case flag :: _ if condFlags.contains(flag) =>
           Left(s"$flag requires 2 arguments: <column-index> <type>")
         case other :: _ => Left(s"Unexpected argument: '$other'. Expected -cond or -d.")
-        case Nil => Right(result.reverse)
+        case Nil        => Right(result.reverse)
       }
     }
 

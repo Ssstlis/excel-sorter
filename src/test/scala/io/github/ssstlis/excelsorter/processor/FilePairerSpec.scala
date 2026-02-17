@@ -38,12 +38,8 @@ class FilePairerSpec extends AnyFreeSpec with Matchers {
     }
 
     "should handle multiple pairs" in {
-      val paths = Seq(
-        "/dir1/client1_old.xlsx",
-        "/dir2/client1_new.xlsx",
-        "/dir3/client2_old.xlsx",
-        "/dir4/client2_new.xlsx"
-      )
+      val paths =
+        Seq("/dir1/client1_old.xlsx", "/dir2/client1_new.xlsx", "/dir3/client2_old.xlsx", "/dir4/client2_new.xlsx")
 
       val result = FilePairer.groupFiles(paths)
 
@@ -54,7 +50,7 @@ class FilePairerSpec extends AnyFreeSpec with Matchers {
     }
 
     "should leave unpaired files when only _old exists" in {
-      val oldPath = "/path/report_old.xlsx"
+      val oldPath   = "/path/report_old.xlsx"
       val otherPath = "/path/other.xlsx"
 
       val result = FilePairer.groupFiles(Seq(oldPath, otherPath))
@@ -73,12 +69,7 @@ class FilePairerSpec extends AnyFreeSpec with Matchers {
     }
 
     "should handle mixed paired and unpaired files" in {
-      val paths = Seq(
-        "/dir1/paired_old.xlsx",
-        "/dir2/paired_new.xlsx",
-        "/dir3/orphan_old.xlsx",
-        "/dir4/regular.xlsx"
-      )
+      val paths = Seq("/dir1/paired_old.xlsx", "/dir2/paired_new.xlsx", "/dir3/orphan_old.xlsx", "/dir4/regular.xlsx")
 
       val result = FilePairer.groupFiles(paths)
 

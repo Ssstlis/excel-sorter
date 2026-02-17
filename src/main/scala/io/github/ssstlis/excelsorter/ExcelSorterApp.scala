@@ -19,8 +19,8 @@ object ExcelSorterApp extends App {
     trackConfig: TrackConfig,
     compareConfig: CompareConfig
   ): Unit = {
-    val sorter = SheetSorter(configs, trackConfig)
-    val sheetNames = configs.map(_.sheetName).toSet
+    val sorter         = SheetSorter(configs, trackConfig)
+    val sheetNames     = configs.map(_.sheetName).toSet
     val sortConfigsMap = configs.map(c => c.sheetName -> c).toMap
 
     val grouped = FilePairer.groupFiles(filePaths)
@@ -40,7 +40,7 @@ object ExcelSorterApp extends App {
 
     mode match {
       case RunMode.SortOnly =>
-        // Sort-only mode: no further processing
+      // Sort-only mode: no further processing
 
       case RunMode.Cut =>
         val cutter = PairedSheetCutter(sheetNames, trackConfig, compareConfig, sortConfigsMap)
@@ -110,7 +110,9 @@ object ExcelSorterApp extends App {
       } else {
         r.firstMismatchRowNum match {
           case Some(rowNum) =>
-            println(s"  Sheet '${r.sheetName}': no equal leading rows, first difference at row $rowNum (key: ${r.firstMismatchKey.getOrElse("")})")
+            println(
+              s"  Sheet '${r.sheetName}': no equal leading rows, first difference at row $rowNum (key: ${r.firstMismatchKey.getOrElse("")})"
+            )
           case None =>
             println(s"  Sheet '${r.sheetName}': all data rows are equal")
         }
@@ -119,7 +121,7 @@ object ExcelSorterApp extends App {
   }
 
   private def writeResultsFile(pair: FilePair, results: List[CompareResult]): Unit = {
-    val oldFileDir = new File(pair.oldFile).getParentFile
+    val oldFileDir  = new File(pair.oldFile).getParentFile
     val resultsPath = new File(oldFileDir, s"${pair.prefix}_compare_results.txt").getAbsolutePath
 
     Try {
@@ -160,7 +162,9 @@ object ExcelSorterApp extends App {
 
   private def printHighlightResults(results: List[HighlightResult]): Unit = {
     results.foreach { r =>
-      println(s"  Sheet '${r.sheetName}': ${r.matchedSameDataCount} matching, ${r.matchedDifferentDataCount} changed, ${r.oldOnlyCount} old-only, ${r.newOnlyCount} new-only")
+      println(
+        s"  Sheet '${r.sheetName}': ${r.matchedSameDataCount} matching, ${r.matchedDifferentDataCount} changed, ${r.oldOnlyCount} old-only, ${r.newOnlyCount} new-only"
+      )
       if (r.oldOnlyColumns.nonEmpty)
         println(s"    Columns only in old file: ${r.oldOnlyColumns.mkString(", ")}")
       if (r.newOnlyColumns.nonEmpty)
@@ -171,7 +175,7 @@ object ExcelSorterApp extends App {
   }
 
   private def writeHighlightResultsFile(pair: FilePair, results: List[HighlightResult]): Unit = {
-    val oldFileDir = new File(pair.oldFile).getParentFile
+    val oldFileDir  = new File(pair.oldFile).getParentFile
     val resultsPath = new File(oldFileDir, s"${pair.prefix}_compare_results.txt").getAbsolutePath
 
     Try {
@@ -218,7 +222,8 @@ object ExcelSorterApp extends App {
   }
 
   private def printUsage(): Unit = {
-    System.err.println("""Usage: excel-sorter [-h|--help] [--cut|-c | --compare|-cmp] <files...> [--conf <config-blocks...>]
+    System.err.println(
+      """Usage: excel-sorter [-h|--help] [--cut|-c | --compare|-cmp] <files...> [--conf <config-blocks...>]
 
     Options:
       -h, --help       Show this help message and exit
@@ -260,7 +265,8 @@ object ExcelSorterApp extends App {
         excel-sorter --cut file_old.xlsx file_new.xlsx --conf \
           --sortings -sheet "Sheet1" -sort asc 0 LocalDate -sort desc 2 String \
           --tracks -sheet default -cond 0 LocalDate \
-          --comparisons -sheet "Sheet1" -ic 1 13""")
+          --comparisons -sheet "Sheet1" -ic 1 13"""
+    )
   }
 
   if (args.isEmpty) {
@@ -277,7 +283,7 @@ object ExcelSorterApp extends App {
           val config = ConfigFactory.load()
           AppConfig.readConfigFromFile(config) match {
             case Right(value) => Some(value)
-            case Left(value) =>
+            case Left(value)  =>
               System.err.println(value)
               None
           }

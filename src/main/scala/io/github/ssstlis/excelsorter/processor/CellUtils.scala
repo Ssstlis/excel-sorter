@@ -26,7 +26,7 @@ object CellUtils {
           if (num == num.toLong) num.toLong.toString
           else num.toString
         }
-      case CellType.STRING => cell.getStringCellValue
+      case CellType.STRING  => cell.getStringCellValue
       case CellType.BOOLEAN => cell.getBooleanCellValue.toString
       case CellType.FORMULA =>
         Try {
@@ -34,13 +34,13 @@ object CellUtils {
           val evaluated = evaluator.evaluate(cell)
           evaluated.getCellType match {
             case CellType.NUMERIC => evaluated.getNumberValue.toString
-            case CellType.STRING => evaluated.getStringValue
+            case CellType.STRING  => evaluated.getStringValue
             case CellType.BOOLEAN => evaluated.getBooleanValue.toString
-            case _ => ""
+            case _                => ""
           }
         }.getOrElse(cell.getCellFormula)
       case CellType.BLANK => ""
-      case _ => ""
+      case _              => ""
     }
   }
 
@@ -71,11 +71,11 @@ object CellUtils {
   }
 
   def rowsAreEqualMapped(
-                          oldRow: Row,
-                          newRow: Row,
-                          columnMapping: List[(Int, Int)],
-                          ignoredOldColumns: Set[Int] = Set.empty
-                        ): Boolean = {
+    oldRow: Row,
+    newRow: Row,
+    columnMapping: List[(Int, Int)],
+    ignoredOldColumns: Set[Int] = Set.empty
+  ): Boolean = {
     columnMapping.forall { case (oldIdx, newIdx) =>
       ignoredOldColumns.contains(oldIdx) || {
         val oldVal = getRowCellValue(oldRow, oldIdx)
@@ -86,12 +86,12 @@ object CellUtils {
   }
 
   def findCellDiffsMapped(
-                           oldRow: Row,
-                           newRow: Row,
-                           columnMapping: List[(Int, Int)],
-                           headerNames: Map[Int, String],
-                           ignoredOldColumns: Set[Int] = Set.empty
-                         ): List[CellDiff] = {
+    oldRow: Row,
+    newRow: Row,
+    columnMapping: List[(Int, Int)],
+    headerNames: Map[Int, String],
+    ignoredOldColumns: Set[Int] = Set.empty
+  ): List[CellDiff] = {
     columnMapping.flatMap { case (oldIdx, newIdx) =>
       if (ignoredOldColumns.contains(oldIdx)) None
       else {

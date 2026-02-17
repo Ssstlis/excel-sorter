@@ -12,8 +12,8 @@ object ColumnSortConfig {
 
   def parseSortConfig(sortConfig: Config): Either[String, ColumnSortConfig] = {
     val orderStr = sortConfig.getString("order")
-    val index = sortConfig.getInt("index")
-    val as = sortConfig.getString("as")
+    val index    = sortConfig.getInt("index")
+    val as       = sortConfig.getString("as")
     resolveColumnSort(orderStr, index, as)
   }
 
@@ -26,7 +26,7 @@ object ColumnSortConfig {
 
       val cmp = result.getOrElse(a.compareTo(b))
       order match {
-        case SortOrder.Asc => cmp
+        case SortOrder.Asc  => cmp
         case SortOrder.Desc => -cmp
       }
     }
@@ -42,12 +42,12 @@ object ColumnSortConfig {
 
     order.flatMap { order =>
       asType match {
-        case "String" => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asString))
-        case "Int" => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asInt))
-        case "Long" => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLong))
-        case "Double" => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asDouble))
+        case "String"     => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asString))
+        case "Int"        => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asInt))
+        case "Long"       => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLong))
+        case "Double"     => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asDouble))
         case "BigDecimal" => Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asBigDecimal))
-        case "LocalDate" =>
+        case "LocalDate"  =>
           Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLocalDateDefault))
         case LocalDatePattern(pattern) =>
           Right(ColumnSortConfig.create(index, order)(SortingDsl.Parsers.asLocalDate(pattern)))

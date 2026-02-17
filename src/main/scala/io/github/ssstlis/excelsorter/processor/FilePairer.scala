@@ -8,10 +8,7 @@ object FilePairer {
   private val OldPattern = """(.+)_old\.xlsx$""".r
   private val NewPattern = """(.+)_new\.xlsx$""".r
 
-  case class GroupedFiles(
-    pairs: List[FilePair],
-    unpaired: List[String]
-  )
+  case class GroupedFiles(pairs: List[FilePair], unpaired: List[String])
 
   private def basename(path: String): String = new File(path).getName
 
@@ -36,7 +33,7 @@ object FilePairer {
     }
 
     val pairedPaths = pairs.flatMap(p => List(p.oldFile, p.newFile)).toSet
-    val unpaired = paths.filterNot(pairedPaths.contains).toList
+    val unpaired    = paths.filterNot(pairedPaths.contains).toList
 
     GroupedFiles(pairs, unpaired)
   }

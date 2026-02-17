@@ -11,17 +11,32 @@ object AppConfig {
   def readConfigFromFile(config: Config): Either[String, AppConfig] = {
     val errBuilder = List.newBuilder[String]
 
-    val sortConfig = SheetSortingConfig.readSortConfig(config).fold({
-      err => errBuilder += err; None;
-    }, Some(_))
+    val sortConfig = SheetSortingConfig
+      .readSortConfig(config)
+      .fold(
+        { err =>
+          errBuilder += err; None;
+        },
+        Some(_)
+      )
 
-    val trackConfig = TrackConfig.readTrackConfig(config).fold({
-      err => errBuilder += err; None;
-    }, Some(_))
+    val trackConfig = TrackConfig
+      .readTrackConfig(config)
+      .fold(
+        { err =>
+          errBuilder += err; None;
+        },
+        Some(_)
+      )
 
-    val compareConfig = CompareConfig.readCompareConfig(config).fold({
-      err => errBuilder += err; None;
-    }, Some(_))
+    val compareConfig = CompareConfig
+      .readCompareConfig(config)
+      .fold(
+        { err =>
+          errBuilder += err; None;
+        },
+        Some(_)
+      )
 
     (for {
       s <- sortConfig

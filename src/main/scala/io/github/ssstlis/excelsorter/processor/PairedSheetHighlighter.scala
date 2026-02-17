@@ -87,8 +87,8 @@ class PairedSheetHighlighter(
         }
 
         val usedNewIndices = mutable.Set[Int]()
-        val commonColumns = mutable.ListBuffer[(Int, Int)]()
-        val oldOnlyCols = mutable.ListBuffer[(Int, String)]()
+        val commonColumns  = mutable.ListBuffer[(Int, Int)]()
+        val oldOnlyCols    = mutable.ListBuffer[(Int, String)]()
 
         oldHeaders.foreach { case (oldIdx, name) =>
           newHeadersByName.get(name).flatMap(q => if (q.nonEmpty) Some(q.dequeue()) else None) match {
@@ -104,7 +104,7 @@ class PairedSheetHighlighter(
 
         val sortColumnIndices = sortConfigsMap.get(sheetName) match {
           case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
-          case _ => List(0)
+          case _                                     => List(0)
         }
 
         val oldKeyIndices = sortColumnIndices
@@ -118,12 +118,12 @@ class PairedSheetHighlighter(
         // Fallback: positional mapping
         val oldLastCell = Option(oldSheet.getRow(oldDataStartIdx)).map(_.getLastCellNum.toInt).getOrElse(0)
         val newLastCell = Option(newSheet.getRow(newDataStartIdx)).map(_.getLastCellNum.toInt).getOrElse(0)
-        val maxCols = math.max(oldLastCell, newLastCell)
-        val positional = (0 until maxCols).map(i => (i, i)).toList
+        val maxCols     = math.max(oldLastCell, newLastCell)
+        val positional  = (0 until maxCols).map(i => (i, i)).toList
 
         val sortColumnIndices = sortConfigsMap.get(sheetName) match {
           case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
-          case _ => List(0)
+          case _                                     => List(0)
         }
 
         ColumnMapping(positional, Nil, Nil, sortColumnIndices, sortColumnIndices)
@@ -138,26 +138,37 @@ class PairedSheetHighlighter(
   private def extractHeaders(row: Row): List[(Int, String)] = {
     val lastCell = row.getLastCellNum
     if (lastCell < 0) Nil
-    else (0 until lastCell).map { i =>
-      i -> normalizeHeader(Option(row.getCell(i)).map(CellUtils.getCellValueAsString).getOrElse(""))
-    }.toList
+    else
+      (0 until lastCell).map { i =>
+        i -> normalizeHeader(Option(row.getCell(i)).map(CellUtils.getCellValueAsString).getOrElse(""))
+      }.toList
   }
 
   private def extractKey(row: Row, keyColumnIndices: List[Int]): String = {
     keyColumnIndices.map(col => CellUtils.getRowCellValue(row, col)).mkString(", ")
   }
 
-  private case class ProcessRowsState(matchedSameData: Int = 0, matchedDiffData: Int = 0, oldOnly: Int = 0, newOnly: Int = 0, rowDiffs: List[RowDiff] = Nil)
+  private case class ProcessRowsState(
+    matchedSameData: Int = 0,
+    matchedDiffData: Int = 0,
+    oldOnly: Int = 0,
+    newOnly: Int = 0,
+    rowDiffs: List[RowDiff] = Nil
+  )
 
   private def processRows(
     key: String,
-    oldByKey: Map[String, Row], newByKey: Map[String, Row],
+    oldByKey: Map[String, Row],
+    newByKey: Map[String, Row],
     mapping: ColumnMapping,
     headerNames: Map[Int, String],
     ignoredCols: Set[Int],
-    oldWorkbook: Workbook, oldStyleCache: mutable.Map[(Short, HighlightColor), CellStyle],
-    newWorkbook: Workbook, newStyleCache: mutable.Map[(Short, HighlightColor), CellStyle],
-    processRowsState: ProcessRowsState): ProcessRowsState = {
+    oldWorkbook: Workbook,
+    oldStyleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+    newWorkbook: Workbook,
+    newStyleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+    processRowsState: ProcessRowsState
+  ): ProcessRowsState = {
     (oldByKey.get(key), newByKey.get(key)) match {
       case (Some(oldRow), Some(newRow)) =>
         if (CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping.commonColumns, ignoredCols)) {
@@ -193,101 +204,118 @@ class PairedSheetHighlighter(
     val oldRows = oldSheet.iterator().asScala.toList
     val newRows = newSheet.iterator().asScala.toList
 
-    if (oldRows.isEmpty || newRows.isEmpty) return HighlightResult(sheetName, 0, 0, 0, 0)
+    if (oldRows.isEmpty || newRows.isEmpty) {
+      HighlightResult(sheetName, 0, 0, 0, 0)
+    } else {
 
-    val isDataRow = trackConfig.dataRowDetector(sheetName, sheetIndex, CellUtils.getRowCellValue)
-    val ignoredCols = compareConfig.ignoredColumns(sheetName, sheetIndex)
+      val isDataRow   = trackConfig.dataRowDetector(sheetName, sheetIndex, CellUtils.getRowCellValue)
+      val ignoredCols = compareConfig.ignoredColumns(sheetName, sheetIndex)
 
-    val oldDataStartIdx = oldRows.indexWhere(isDataRow)
-    val newDataStartIdx = newRows.indexWhere(isDataRow)
+      val oldDataStartIdx = oldRows.indexWhere(isDataRow)
+      val newDataStartIdx = newRows.indexWhere(isDataRow)
 
-    if (oldDataStartIdx < 0 || newDataStartIdx < 0) return HighlightResult(sheetName, 0, 0, 0, 0)
+      if (oldDataStartIdx < 0 || newDataStartIdx < 0) {
+        HighlightResult(sheetName, 0, 0, 0, 0)
+      } else {
+        val mapping = buildColumnMapping(oldSheet, newSheet, oldDataStartIdx, newDataStartIdx, sheetName)
 
-    val mapping = buildColumnMapping(oldSheet, newSheet, oldDataStartIdx, newDataStartIdx, sheetName)
-
-    val headerNames: Map[Int, String] = {
-      val headerRowIdx = oldDataStartIdx - 1
-      if (headerRowIdx >= 0) {
-        Option(oldSheet.getRow(headerRowIdx)) match {
-          case Some(hr) => extractHeaders(hr).toMap
-          case None => Map.empty[Int, String]
+        val headerNames: Map[Int, String] = {
+          val headerRowIdx = oldDataStartIdx - 1
+          if (headerRowIdx >= 0) {
+            Option(oldSheet.getRow(headerRowIdx)) match {
+              case Some(hr) => extractHeaders(hr).toMap
+              case None     => Map.empty[Int, String]
+            }
+          } else Map.empty[Int, String]
         }
-      } else Map.empty[Int, String]
+
+        val oldDataRows = oldRows.drop(oldDataStartIdx)
+        val newDataRows = newRows.drop(newDataStartIdx)
+
+        val oldByKey: Map[String, Row] = oldDataRows.map(r => extractKey(r, mapping.oldKeyIndices) -> r).toMap
+        val newByKey: Map[String, Row] = newDataRows.map(r => extractKey(r, mapping.newKeyIndices) -> r).toMap
+
+        val allKeys = oldByKey.keySet ++ newByKey.keySet
+
+        val oldStyleCache = mutable.Map[(Short, HighlightColor), CellStyle]()
+        val newStyleCache = mutable.Map[(Short, HighlightColor), CellStyle]()
+
+        val processRowsState = allKeys.foldLeft(ProcessRowsState()) { case (state, key) =>
+          processRows(
+            key,
+            oldByKey,
+            newByKey,
+            mapping,
+            headerNames,
+            ignoredCols,
+            oldWorkbook,
+            oldStyleCache,
+            newWorkbook,
+            newStyleCache,
+            state
+          )
+        }
+
+        HighlightResult(
+          sheetName = sheetName,
+          matchedSameDataCount = processRowsState.matchedSameData,
+          matchedDifferentDataCount = processRowsState.matchedDiffData,
+          oldOnlyCount = processRowsState.oldOnly,
+          newOnlyCount = processRowsState.newOnly,
+          rowDiffs = processRowsState.rowDiffs.reverse,
+          oldOnlyColumns = mapping.oldOnlyColumns.map(_._2),
+          newOnlyColumns = mapping.newOnlyColumns.map(_._2)
+        )
+      }
     }
-
-    val oldDataRows = oldRows.drop(oldDataStartIdx)
-    val newDataRows = newRows.drop(newDataStartIdx)
-
-    val oldByKey: Map[String, Row] = oldDataRows.map(r => extractKey(r, mapping.oldKeyIndices) -> r).toMap
-    val newByKey: Map[String, Row] = newDataRows.map(r => extractKey(r, mapping.newKeyIndices) -> r).toMap
-
-    val allKeys = oldByKey.keySet ++ newByKey.keySet
-
-    val oldStyleCache = mutable.Map[(Short, HighlightColor), CellStyle]()
-    val newStyleCache = mutable.Map[(Short, HighlightColor), CellStyle]()
-
-
-    val processRowsState = allKeys.foldLeft(ProcessRowsState()) { case (state, key) =>
-      processRows(
-        key,
-        oldByKey, newByKey,
-        mapping, headerNames, ignoredCols,
-        oldWorkbook, oldStyleCache, newWorkbook, newStyleCache,
-        state
-      )
-    }
-
-    HighlightResult(
-      sheetName = sheetName,
-      matchedSameDataCount = processRowsState.matchedSameData,
-      matchedDifferentDataCount = processRowsState.matchedDiffData,
-      oldOnlyCount = processRowsState.oldOnly,
-      newOnlyCount = processRowsState.newOnly,
-      rowDiffs = processRowsState.rowDiffs.reverse,
-      oldOnlyColumns = mapping.oldOnlyColumns.map(_._2),
-      newOnlyColumns = mapping.newOnlyColumns.map(_._2)
-    )
   }
 
-  private def applyBackground(row: Row, workbook: Workbook, styleCache: mutable.Map[(Short, HighlightColor), CellStyle], color: HighlightColor): Unit = {
+  private def applyBackground(
+    row: Row,
+    workbook: Workbook,
+    styleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+    color: HighlightColor
+  ): Unit = {
     Option(row).foreach { row =>
       val lastCellNum = row.getLastCellNum
       (if (lastCellNum < 0) None else Some(lastCellNum)).foreach { lastCellNum =>
         (0 until lastCellNum).foreach { colIdx =>
           Option(row.getCell(colIdx)).foreach { cell =>
             val originalStyle = cell.getCellStyle
-            val key = (originalStyle.getIndex, color)
-            val coloredStyle = styleCache.getOrElseUpdate(key, {
-              val newStyle = workbook.createCellStyle()
-              newStyle.cloneStyleFrom(originalStyle)
+            val key           = (originalStyle.getIndex, color)
+            val coloredStyle  = styleCache.getOrElseUpdate(
+              key, {
+                val newStyle = workbook.createCellStyle()
+                newStyle.cloneStyleFrom(originalStyle)
 
-              newStyle.setBorderTop(BorderStyle.THIN)
-              newStyle.setBorderBottom(BorderStyle.THIN)
-              newStyle.setBorderLeft(BorderStyle.THIN)
-              newStyle.setBorderRight(BorderStyle.THIN)
-              newStyle.setTopBorderColor(IndexedColors.BLACK.getIndex)
-              newStyle.setBottomBorderColor(IndexedColors.BLACK.getIndex)
-              newStyle.setLeftBorderColor(IndexedColors.BLACK.getIndex)
-              newStyle.setRightBorderColor(IndexedColors.BLACK.getIndex)
+                newStyle.setBorderTop(BorderStyle.THIN)
+                newStyle.setBorderBottom(BorderStyle.THIN)
+                newStyle.setBorderLeft(BorderStyle.THIN)
+                newStyle.setBorderRight(BorderStyle.THIN)
+                newStyle.setTopBorderColor(IndexedColors.BLACK.getIndex)
+                newStyle.setBottomBorderColor(IndexedColors.BLACK.getIndex)
+                newStyle.setLeftBorderColor(IndexedColors.BLACK.getIndex)
+                newStyle.setRightBorderColor(IndexedColors.BLACK.getIndex)
 
-              val xssfNew = newStyle.asInstanceOf[XSSFCellStyle]
-              color match {
-                case Green =>
-                  xssfNew.setFillForegroundColor(
-                    new XSSFColor(Array[Byte](0xE1.toByte, 0xFA.toByte, 0xE1.toByte), null)
-                  )
-                case PaleRed =>
-                  xssfNew.setFillForegroundColor(
-                    new XSSFColor(Array[Byte](0xFF.toByte, 0xCC.toByte, 0xCC.toByte), null)
-                  )
-                case PaleOrange =>
-                  xssfNew.setFillForegroundColor(
-                    new XSSFColor(Array[Byte](0xF5.toByte, 0xE7.toByte, 0x9A.toByte), null)
-                  )
+                val xssfNew = newStyle.asInstanceOf[XSSFCellStyle]
+                color match {
+                  case Green =>
+                    xssfNew.setFillForegroundColor(
+                      new XSSFColor(Array[Byte](0xe1.toByte, 0xfa.toByte, 0xe1.toByte), null)
+                    )
+                  case PaleRed =>
+                    xssfNew.setFillForegroundColor(
+                      new XSSFColor(Array[Byte](0xff.toByte, 0xcc.toByte, 0xcc.toByte), null)
+                    )
+                  case PaleOrange =>
+                    xssfNew.setFillForegroundColor(
+                      new XSSFColor(Array[Byte](0xf5.toByte, 0xe7.toByte, 0x9a.toByte), null)
+                    )
+                }
+                newStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
+                newStyle
               }
-              newStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
-              newStyle
-            })
+            )
             cell.setCellStyle(coloredStyle)
           }
         }

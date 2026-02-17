@@ -17,8 +17,13 @@ import scala.jdk.CollectionConverters._
 
 class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
 
-  private def createTestWorkbook(path: String, sheetName: String, headers: List[String], dataRows: List[List[String]]): Unit = {
-    val wb = new XSSFWorkbook()
+  private def createTestWorkbook(
+    path: String,
+    sheetName: String,
+    headers: List[String],
+    dataRows: List[List[String]]
+  ): Unit = {
+    val wb    = new XSSFWorkbook()
     val sheet = wb.createSheet(sheetName)
 
     val headerRow = sheet.createRow(0)
@@ -30,7 +35,8 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     val fos = new FileOutputStream(path)
-    try { wb.write(fos) } finally { fos.close(); wb.close() }
+    try { wb.write(fos) }
+    finally { fos.close(); wb.close() }
   }
 
   private def readSheetRows(path: String, sheetName: String): List[List[String]] = {
@@ -51,14 +57,14 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
   "PairedSheetCutter" - {
 
     "should create _sortcutted files" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
       createTestWorkbook(oldPath, "Sheet1", List("Header"), List(List("2024-01-01"), List("2024-01-02")))
       createTestWorkbook(newPath, "Sheet1", List("Header"), List(List("2024-01-01"), List("2024-01-03")))
 
-      val cutter = PairedSheetCutter(Set("Sheet1"))
+      val cutter                      = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, _) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
       oldCutPath should endWith("_sortcutted.xlsx")
@@ -68,7 +74,7 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     "should not modify _sorted files" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
@@ -86,16 +92,24 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     "should remove equal leading data rows from _sortcutted files" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
-      createTestWorkbook(oldPath, "Sheet1", List("Header"),
-        List(List("2024-01-01", "same"), List("2024-01-02", "same"), List("2024-01-03", "old-only")))
-      createTestWorkbook(newPath, "Sheet1", List("Header"),
-        List(List("2024-01-01", "same"), List("2024-01-02", "same"), List("2024-01-04", "new-only")))
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Header"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same"), List("2024-01-03", "old-only"))
+      )
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Header"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same"), List("2024-01-04", "new-only"))
+      )
 
-      val cutter = PairedSheetCutter(Set("Sheet1"))
+      val cutter                            = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
       results should have size 1
@@ -111,16 +125,24 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     "should preserve headers" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
-      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
-        List(List("2024-01-01", "same"), List("2024-01-02", "diff")))
-      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
-        List(List("2024-01-01", "same"), List("2024-01-03", "diff")))
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Date", "Value"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "diff"))
+      )
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Date", "Value"),
+        List(List("2024-01-01", "same"), List("2024-01-03", "diff"))
+      )
 
-      val cutter = PairedSheetCutter(Set("Sheet1"))
+      val cutter                      = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, _) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
       readSheetRows(oldCutPath, "Sheet1").head shouldBe List("Date", "Value")
@@ -128,14 +150,14 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     "should handle no equal leading rows" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
       createTestWorkbook(oldPath, "Sheet1", List("Header"), List(List("2024-01-01", "old")))
       createTestWorkbook(newPath, "Sheet1", List("Header"), List(List("2024-01-02", "new")))
 
-      val cutter = PairedSheetCutter(Set("Sheet1"))
+      val cutter                            = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
       results should have size 1
@@ -146,28 +168,27 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     "should use trackConfig for data row detection" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
-      createTestWorkbook(oldPath, "Sheet1", List("Title"), List(
-        List("SubHeader"),
-        List("DATA-1", "same"),
-        List("DATA-2", "old-only")
-      ))
-      createTestWorkbook(newPath, "Sheet1", List("Title"), List(
-        List("SubHeader"),
-        List("DATA-1", "same"),
-        List("DATA-3", "new-only")
-      ))
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Title"),
+        List(List("SubHeader"), List("DATA-1", "same"), List("DATA-2", "old-only"))
+      )
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Title"),
+        List(List("SubHeader"), List("DATA-1", "same"), List("DATA-3", "new-only"))
+      )
 
-      val track = TrackConfig(List(
-        TrackPolicy(SheetSelector.Default, NonEmptyList.of(
-          TrackCondition(0, _.startsWith("DATA"))
-        ))
-      ))
+      val track =
+        TrackConfig(List(TrackPolicy(SheetSelector.Default, NonEmptyList.of(TrackCondition(0, _.startsWith("DATA"))))))
 
-      val cutter = PairedSheetCutter(Set("Sheet1"), track)
+      val cutter                   = PairedSheetCutter(Set("Sheet1"), track)
       val (oldCutPath, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
       results should have size 1
@@ -179,26 +200,26 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     "should ignore specified columns when comparing" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
-      createTestWorkbook(oldPath, "Sheet1", List("Date", "Amount", "Note"),
-        List(
-          List("2024-01-01", "100", "old-note"),
-          List("2024-01-02", "200", "same")
-        ))
-      createTestWorkbook(newPath, "Sheet1", List("Date", "Amount", "Note"),
-        List(
-          List("2024-01-01", "100", "new-note"),
-          List("2024-01-02", "200", "same")
-        ))
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Date", "Amount", "Note"),
+        List(List("2024-01-01", "100", "old-note"), List("2024-01-02", "200", "same"))
+      )
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Date", "Amount", "Note"),
+        List(List("2024-01-01", "100", "new-note"), List("2024-01-02", "200", "same"))
+      )
 
-      val compare = CompareConfig(List(
-        ComparePolicy(SheetSelector.Default, Set(2))
-      ))
+      val compare = CompareConfig(List(ComparePolicy(SheetSelector.Default, Set(2))))
 
-      val cutter = PairedSheetCutter(Set("Sheet1"), compareConfig = compare)
+      val cutter                   = PairedSheetCutter(Set("Sheet1"), compareConfig = compare)
       val (oldCutPath, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
       results should have size 1
@@ -209,30 +230,27 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     "should report first mismatch row and key" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
-      createTestWorkbook(oldPath, "Sheet1", List("Date", "Value"),
-        List(
-          List("2024-01-01", "same"),
-          List("2024-01-02", "same"),
-          List("2024-01-03", "old-only")
-        ))
-      createTestWorkbook(newPath, "Sheet1", List("Date", "Value"),
-        List(
-          List("2024-01-01", "same"),
-          List("2024-01-02", "same"),
-          List("2024-01-04", "new-only")
-        ))
-
-      val sortConfigs = Map(
-        "Sheet1" -> SheetSortingConfig("Sheet1", List(
-          SortingDsl.asc(0)(SortingDsl.Parsers.asLocalDateDefault)
-        ))
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Date", "Value"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same"), List("2024-01-03", "old-only"))
+      )
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Date", "Value"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same"), List("2024-01-04", "new-only"))
       )
 
-      val cutter = PairedSheetCutter(Set("Sheet1"), sortConfigsMap = sortConfigs)
+      val sortConfigs =
+        Map("Sheet1" -> SheetSortingConfig("Sheet1", List(SortingDsl.asc(0)(SortingDsl.Parsers.asLocalDateDefault))))
+
+      val cutter          = PairedSheetCutter(Set("Sheet1"), sortConfigsMap = sortConfigs)
       val (_, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
       results should have size 1
@@ -242,16 +260,24 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
     }
 
     "should report no mismatch when all data rows are equal" in {
-      val tmpDir = Files.createTempDirectory("cutter-test").toFile
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
 
-      createTestWorkbook(oldPath, "Sheet1", List("Header"),
-        List(List("2024-01-01", "same"), List("2024-01-02", "same")))
-      createTestWorkbook(newPath, "Sheet1", List("Header"),
-        List(List("2024-01-01", "same"), List("2024-01-02", "same")))
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Header"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same"))
+      )
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Header"),
+        List(List("2024-01-01", "same"), List("2024-01-02", "same"))
+      )
 
-      val cutter = PairedSheetCutter(Set("Sheet1"))
+      val cutter          = PairedSheetCutter(Set("Sheet1"))
       val (_, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
       results should have size 1

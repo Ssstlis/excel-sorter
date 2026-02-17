@@ -14,10 +14,10 @@ object BuildInfo {
       project
         .enablePlugins(BuildInfoPlugin)
         .settings(
-          buildCommit := git.gitHeadCommit.value.getOrElse("unknown"),
-          buildBranch := git.gitCurrentBranch.value,
-          buildTime := Instant.now,
-          buildNumber := sys.props.getOrElse("BUILD_NUMBER", "0"),
+          buildCommit   := git.gitHeadCommit.value.getOrElse("unknown"),
+          buildBranch   := git.gitCurrentBranch.value,
+          buildTime     := Instant.now,
+          buildNumber   := sys.props.getOrElse("BUILD_NUMBER", "0"),
           buildInfoKeys := {
             Seq[BuildInfoKey](name, version, buildCommit, buildBranch, buildTime, buildNumber)
           },
