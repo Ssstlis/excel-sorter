@@ -100,7 +100,6 @@ class SheetSorter(
 
   private def extractRowData(row: Row): List[(Any, CellType, CellStyle)] = {
     val lastCellNum = row.getLastCellNum
-    if (lastCellNum < 0) return Nil
 
     (0 until lastCellNum).map { colIdx =>
       val cell = row.getCell(colIdx)
