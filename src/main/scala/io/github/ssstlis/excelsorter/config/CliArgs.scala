@@ -6,9 +6,12 @@ import io.github.ssstlis.excelsorter.config.track.{TrackConfig, TrackPolicy}
 import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
 
 sealed trait RunMode
+
 object RunMode {
   case object SortOnly extends RunMode
+
   case object Cut extends RunMode
+
   case object Compare extends RunMode
 }
 
@@ -27,48 +30,51 @@ object CliArgs {
     val argList = args.toList
 
     if (argList.exists(helpFlags.contains)) {
-      return Left("help")
-    }
-
-    val confIndex = argList.indexOf(confFlag)
-    val (mainArgs, confArgs) = if (confIndex >= 0) {
-      (argList.take(confIndex), argList.drop(confIndex + 1))
+      Left("help")
     } else {
-      (argList, Nil)
-    }
 
-    val (flags, files) = mainArgs.partition(_.startsWith("-"))
-
-    val unknownFlags = flags.filterNot(modeFlags.contains)
-    if (unknownFlags.nonEmpty) {
-      return Left(s"Unknown flag(s): ${unknownFlags.mkString(", ")}. Supported: --cut/-c, --compare/-cmp, --conf, -h/--help")
-    }
-
-    val hasCut = flags.exists(cutFlags.contains)
-    val hasCompare = flags.exists(compareFlags.contains)
-
-    if (hasCut && hasCompare) {
-      return Left("Flags --cut and --compare are mutually exclusive. Use only one.")
-    }
-
-    if (files.isEmpty) {
-      return Left("No input files specified.")
-    }
-
-    val mode = if (hasCut) RunMode.Cut
-               else if (hasCompare) RunMode.Compare
-               else RunMode.SortOnly
-
-    val cliConfig = if (confArgs.nonEmpty) {
-      parseConfSection(confArgs) match {
-        case Left(err) => return Left(err)
-        case Right(cc) => Some(cc)
+      val confIndex = argList.indexOf(confFlag)
+      val (mainArgs, confArgs) = if (confIndex >= 0) {
+        (argList.take(confIndex), argList.drop(confIndex + 1))
+      } else {
+        (argList, Nil)
       }
-    } else {
-      None
-    }
 
-    Right(CliArgs(mode, files, cliConfig))
+      val (flags, files) = mainArgs.partition(_.startsWith("-"))
+
+      val unknownFlags = flags.filterNot(modeFlags.contains)
+      if (unknownFlags.nonEmpty) {
+        Left(s"Unknown flag(s): ${unknownFlags.mkString(", ")}. Supported: --cut/-c, --compare/-cmp, --conf, -h/--help")
+      } else {
+
+        val hasCut = flags.exists(cutFlags.contains)
+        val hasCompare = flags.exists(compareFlags.contains)
+
+        if (hasCut && hasCompare) {
+          Left("Flags --cut and --compare are mutually exclusive. Use only one.")
+        } else {
+
+          if (files.isEmpty) {
+            Left("No input files specified.")
+          } else {
+
+            val mode = {
+              if (hasCut) RunMode.Cut
+              else if (hasCompare) RunMode.Compare
+              else RunMode.SortOnly
+            }
+
+            val args = if (confArgs.nonEmpty) {
+              parseConfSection(confArgs).map(Some(_))
+            } else {
+              Right(None)
+            }
+
+            args.map(CliArgs(mode, files, _))
+          }
+        }
+      }
+    }
   }
 
   private def parseConfSection(args: List[String]): Either[String, AppConfig] = {
