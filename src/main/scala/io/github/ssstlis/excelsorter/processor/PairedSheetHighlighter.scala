@@ -268,22 +268,25 @@ class PairedSheetHighlighter(
   }
 
   private def buildXssfColor(r: Int, g: Int, b: Int) = new XSSFColor(Array[Byte](r.toByte, g.toByte, b.toByte), null)
-  private val xssfGreenColor = buildXssfColor(0xe1, 0xfa, 0xe1)
-  private val xssfPaleRedColor = buildXssfColor(0xff, 0xcc, 0xcc)
+
+  private val xssfGreenColor      = buildXssfColor(0xe1, 0xfa, 0xe1)
+  private val xssfPaleRedColor    = buildXssfColor(0xff, 0xcc, 0xcc)
   private val xssfPaleOrangeColor = buildXssfColor(0xf5, 0xe7, 0x9a)
 
   private def styleSetFillForegroundColor(style: XSSFCellStyle, color: HighlightColor): Unit = {
     color match {
-      case Green => style.setFillForegroundColor(xssfGreenColor)
-      case PaleRed => style.setFillForegroundColor(xssfPaleRedColor)
+      case Green      => style.setFillForegroundColor(xssfGreenColor)
+      case PaleRed    => style.setFillForegroundColor(xssfPaleRedColor)
       case PaleOrange => style.setFillForegroundColor(xssfPaleOrangeColor)
     }
   }
 
-  private def applyCellBackgroundStyle(cell: Cell,
-                                       workbook: Workbook,
-                                       styleCache: mutable.Map[(Short, HighlightColor), CellStyle],
-                                       color: HighlightColor) = {
+  private def applyCellBackgroundStyle(
+    cell: Cell,
+    workbook: Workbook,
+    styleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+    color: HighlightColor
+  ): Unit = {
     val originalStyle = cell.getCellStyle
     val key           = (originalStyle.getIndex, color)
     val coloredStyle  = styleCache.getOrElseUpdate(
