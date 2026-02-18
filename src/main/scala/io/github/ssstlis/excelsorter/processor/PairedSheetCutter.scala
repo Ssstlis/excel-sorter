@@ -70,6 +70,8 @@ class PairedSheetCutter(
       if (oldDataStartIdx < 0 || newDataStartIdx < 0) {
         CompareResult(sheetName, 0, None, None)
       } else {
+        val mapping =
+          CellUtils.buildColumnMapping(oldSheet, newSheet, oldDataStartIdx, newDataStartIdx, sheetName, sortConfigsMap)
 
         val oldDataRows = oldRows.drop(oldDataStartIdx)
         val newDataRows = newRows.drop(newDataStartIdx)
@@ -77,7 +79,7 @@ class PairedSheetCutter(
         val equalCount = oldDataRows
           .zip(newDataRows)
           .takeWhile { case (oldRow, newRow) =>
-            CellUtils.rowsAreEqual(oldRow, newRow, ignoredCols)
+            CellUtils.findCellDiffsMapped(oldRow, newRow, mapping.commonColumns, Map.empty, ignoredCols).isEmpty
           }
           .size
 

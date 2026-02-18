@@ -7,7 +7,6 @@ import io.github.ssstlis.excelsorter.model._
 import org.apache.poi.ss.usermodel._
 import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFColor}
 
-import java.text.Normalizer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
@@ -64,86 +63,14 @@ class PairedSheetHighlighter(
     sortedPath.replace("_sorted.xlsx", "_compared.xlsx")
   }
 
-  //format: off
   private[processor] def buildColumnMapping(
-    oldSheet: Sheet, newSheet: Sheet,
-    oldDataStartIdx: Int, newDataStartIdx: Int,
+    oldSheet: Sheet,
+    newSheet: Sheet,
+    oldDataStartIdx: Int,
+    newDataStartIdx: Int,
     sheetName: String
-  ): ColumnMapping = {
-  //format: on
-    val oldHeaderRowIdx = oldDataStartIdx - 1
-    val newHeaderRowIdx = newDataStartIdx - 1
-
-    val oldHeaderRow = if (oldHeaderRowIdx >= 0) Option(oldSheet.getRow(oldHeaderRowIdx)) else None
-    val newHeaderRow = if (newHeaderRowIdx >= 0) Option(newSheet.getRow(newHeaderRowIdx)) else None
-
-    (oldHeaderRow, newHeaderRow) match {
-      case (Some(ohr), Some(nhr)) =>
-        val oldHeaders = extractHeaders(ohr)
-        val newHeaders = extractHeaders(nhr)
-
-        val newHeadersByName = mutable.Map[String, mutable.Queue[Int]]()
-        newHeaders.foreach { case (idx, name) =>
-          newHeadersByName.getOrElseUpdate(name, mutable.Queue[Int]()) += idx
-        }
-
-        val usedNewIndices = mutable.Set[Int]()
-        val commonColumns  = mutable.ListBuffer[(Int, Int)]()
-        val oldOnlyCols    = mutable.ListBuffer[(Int, String)]()
-
-        oldHeaders.foreach { case (oldIdx, name) =>
-          newHeadersByName.get(name).flatMap(q => if (q.nonEmpty) Some(q.dequeue()) else None) match {
-            case Some(newIdx) =>
-              commonColumns += ((oldIdx, newIdx))
-              usedNewIndices += newIdx
-            case None =>
-              oldOnlyCols += ((oldIdx, name))
-          }
-        }
-
-        val newOnlyCols = newHeaders.filterNot { case (idx, _) => usedNewIndices.contains(idx) }
-
-        val sortColumnIndices = sortConfigsMap.get(sheetName) match {
-          case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
-          case _                                     => List(0)
-        }
-
-        val oldKeyIndices = sortColumnIndices
-        val newKeyIndices = sortColumnIndices.map { oldIdx =>
-          commonColumns.find(_._1 == oldIdx).map(_._2).getOrElse(oldIdx)
-        }
-
-        ColumnMapping(commonColumns.toList, oldOnlyCols.toList, newOnlyCols, oldKeyIndices, newKeyIndices)
-
-      case _ =>
-        // Fallback: positional mapping
-        val oldLastCell = Option(oldSheet.getRow(oldDataStartIdx)).map(_.getLastCellNum.toInt).getOrElse(0)
-        val newLastCell = Option(newSheet.getRow(newDataStartIdx)).map(_.getLastCellNum.toInt).getOrElse(0)
-        val maxCols     = math.max(oldLastCell, newLastCell)
-        val positional  = (0 until maxCols).map(i => (i, i)).toList
-
-        val sortColumnIndices = sortConfigsMap.get(sheetName) match {
-          case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
-          case _                                     => List(0)
-        }
-
-        ColumnMapping(positional, Nil, Nil, sortColumnIndices, sortColumnIndices)
-    }
-  }
-
-  private def normalizeHeader(s: String): String = {
-    val normalized = Normalizer.normalize(s, Normalizer.Form.NFKC)
-    normalized.replaceAll("[\\p{Cf}]", "").trim
-  }
-
-  private def extractHeaders(row: Row): List[(Int, String)] = {
-    val lastCell = row.getLastCellNum
-    if (lastCell < 0) Nil
-    else
-      (0 until lastCell).map { i =>
-        i -> normalizeHeader(Option(row.getCell(i)).map(CellUtils.getCellValueAsString).getOrElse(""))
-      }.toList
-  }
+  ): ColumnMapping =
+    CellUtils.buildColumnMapping(oldSheet, newSheet, oldDataStartIdx, newDataStartIdx, sheetName, sortConfigsMap)
 
   private def extractKey(row: Row, keyColumnIndices: List[Int]): String = {
     keyColumnIndices.map(col => CellUtils.getRowCellValue(row, col)).mkString(", ")
@@ -169,7 +96,7 @@ class PairedSheetHighlighter(
     //format: on
     (oldByKey.get(key), newByKey.get(key)) match {
       case (Some(oldRow), Some(newRow)) =>
-        val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping.commonColumns, headerNames, ignoredCols)
+        val diffs       = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping.commonColumns, headerNames, ignoredCols)
         val oldDiffCols = diffs.map(_.oldColumnIndex).toSet ++ mapping.oldOnlyColumns.map(_._1).toSet
         val newDiffCols = diffs.map(_.newColumnIndex).toSet ++ mapping.newOnlyColumns.map(_._1).toSet
         applyBackground(oldRow, oldWorkbook, oldStyleCache, oldDiffCols, Green)
@@ -221,7 +148,7 @@ class PairedSheetHighlighter(
           val headerRowIdx = oldDataStartIdx - 1
           if (headerRowIdx >= 0) {
             Option(oldSheet.getRow(headerRowIdx)) match {
-              case Some(hr) => extractHeaders(hr).toMap
+              case Some(hr) => CellUtils.extractHeaders(hr).toMap
               case None     => Map.empty[Int, String]
             }
           } else Map.empty[Int, String]

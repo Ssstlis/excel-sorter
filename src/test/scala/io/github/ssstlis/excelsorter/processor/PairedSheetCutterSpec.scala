@@ -259,6 +259,131 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       results.head.firstMismatchKey shouldBe Some("2024-01-03")
     }
 
+    "should treat reordered columns as equal when cutting" in {
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      // Old: Date | Amount | Note
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Date", "Amount", "Note"),
+        List(
+          List("2024-01-01", "100", "note1"),
+          List("2024-01-02", "200", "note2"),
+          List("2024-01-03", "300", "old-only")
+        )
+      )
+      // New: Date | Note | Amount  (Note and Amount swapped)
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Date", "Note", "Amount"),
+        List(
+          List("2024-01-01", "note1", "100"),
+          List("2024-01-02", "note2", "200"),
+          List("2024-01-04", "new-only", "400")
+        )
+      )
+
+      val cutter                            = PairedSheetCutter(Set("Sheet1"))
+      val (oldCutPath, newCutPath, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
+
+      results should have size 1
+      results.head.equalRowCount shouldBe 2
+
+      val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
+      oldCutRows should have size 2 // header + 1 data row
+      oldCutRows(1) shouldBe List("2024-01-03", "300", "old-only")
+
+      val newCutRows = readSheetRows(newCutPath, "Sheet1")
+      newCutRows should have size 2
+      newCutRows(1) shouldBe List("2024-01-04", "new-only", "400")
+    }
+
+    "should treat reordered columns with different values as unequal" in {
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      // Old: Date | Amount | Note  — Amount = 100
+      createTestWorkbook(oldPath, "Sheet1", List("Date", "Amount", "Note"), List(List("2024-01-01", "100", "note1")))
+      // New: Date | Note | Amount  — Amount = 999 (different)
+      createTestWorkbook(newPath, "Sheet1", List("Date", "Note", "Amount"), List(List("2024-01-01", "note1", "999")))
+
+      val cutter          = PairedSheetCutter(Set("Sheet1"))
+      val (_, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
+
+      results should have size 1
+      results.head.equalRowCount shouldBe 0
+    }
+
+    "should ignore new-only column and cut equal rows on common columns" in {
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      // Old: Date | Amount  (no Note column)
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Date", "Amount"),
+        List(List("2024-01-01", "100"), List("2024-01-02", "200"))
+      )
+      // New: Date | Amount | Note  (extra Note column)
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Date", "Amount", "Note"),
+        List(List("2024-01-01", "100", "extra1"), List("2024-01-02", "200", "extra2"))
+      )
+
+      val cutter                   = PairedSheetCutter(Set("Sheet1"))
+      val (oldCutPath, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
+
+      results should have size 1
+      results.head.equalRowCount shouldBe 2
+
+      // Only header remains
+      val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
+      oldCutRows should have size 1
+    }
+
+    "should combine column mapping with ignored columns" in {
+      val tmpDir  = Files.createTempDirectory("cutter-test").toFile
+      val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
+      val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
+
+      // Old: Date | Amount | Note  (Note at old-index 2)
+      createTestWorkbook(
+        oldPath,
+        "Sheet1",
+        List("Date", "Amount", "Note"),
+        List(List("2024-01-01", "100", "old-note"), List("2024-01-02", "200", "old-note2"))
+      )
+      // New: Date | Note | Amount  (Note and Amount swapped; Note values differ from old)
+      createTestWorkbook(
+        newPath,
+        "Sheet1",
+        List("Date", "Note", "Amount"),
+        List(List("2024-01-01", "new-note", "100"), List("2024-01-02", "new-note2", "200"))
+      )
+
+      // Ignore old-column-index 2 (Note in old file)
+      val compare = CompareConfig(List(ComparePolicy(SheetSelector.Default, Set(2))))
+
+      val cutter                   = PairedSheetCutter(Set("Sheet1"), compareConfig = compare)
+      val (oldCutPath, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
+
+      results should have size 1
+      // Both rows have equal Date and Amount (after mapping); Note is ignored → 2 rows cut
+      results.head.equalRowCount shouldBe 2
+
+      val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
+      oldCutRows should have size 1 // only header
+    }
+
     "should report no mismatch when all data rows are equal" in {
       val tmpDir  = Files.createTempDirectory("cutter-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath

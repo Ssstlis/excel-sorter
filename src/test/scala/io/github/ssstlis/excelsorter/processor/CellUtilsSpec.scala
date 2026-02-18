@@ -125,7 +125,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           row2.createCell(0).setCellValue("a")
           row2.createCell(1).setCellValue("b")
 
-          CellUtils.rowsAreEqual(row1, row2) shouldBe true
+          val mapping = List((0, 0), (1, 1))
+          CellUtils.findCellDiffsMapped(row1, row2, mapping) shouldBe empty
         } finally {
           wb.close()
         }
@@ -141,7 +142,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           val row2 = sheet.createRow(1)
           row2.createCell(0).setCellValue("b")
 
-          CellUtils.rowsAreEqual(row1, row2) shouldBe false
+          val mapping = List((0, 0))
+          CellUtils.findCellDiffsMapped(row1, row2, mapping) should not be empty
         } finally {
           wb.close()
         }
@@ -158,7 +160,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           val row2 = sheet.createRow(1)
           row2.createCell(0).setCellValue("a")
 
-          CellUtils.rowsAreEqual(row1, row2) shouldBe false
+          val mapping = List((0, 0))
+          CellUtils.findCellDiffsMapped(row1, row2, mapping) should not be empty
         } finally {
           wb.close()
         }
@@ -171,7 +174,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           val row1  = sheet.createRow(0)
           val row2  = sheet.createRow(1)
 
-          CellUtils.rowsAreEqual(row1, row2) shouldBe true
+          val mapping = List((0, 0))
+          CellUtils.findCellDiffsMapped(row1, row2, mapping) shouldBe empty
         } finally {
           wb.close()
         }
@@ -191,8 +195,9 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           row2.createCell(1).setCellValue("diff-new")
           row2.createCell(2).setCellValue("same")
 
-          CellUtils.rowsAreEqual(row1, row2) shouldBe false
-          CellUtils.rowsAreEqual(row1, row2, Set(1)) shouldBe true
+          val mapping = List((0, 0), (1, 1), (2, 2))
+          CellUtils.findCellDiffsMapped(row1, row2, mapping) should not be empty
+          CellUtils.findCellDiffsMapped(row1, row2, mapping, ignoredColumns = Set(1)) shouldBe empty
         } finally {
           wb.close()
         }
@@ -212,7 +217,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           row2.createCell(1).setCellValue("same")
           row2.createCell(2).setCellValue("c")
 
-          CellUtils.rowsAreEqual(row1, row2, Set(1)) shouldBe false
+          val mapping = List((0, 0), (1, 1), (2, 2))
+          CellUtils.findCellDiffsMapped(row1, row2, mapping, ignoredColumns = Set(1)) should not be empty
         } finally {
           wb.close()
         }
@@ -232,7 +238,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           row2.createCell(1).setCellValue("other1")
           row2.createCell(2).setCellValue("other2")
 
-          CellUtils.rowsAreEqual(row1, row2, Set(1, 2)) shouldBe true
+          val mapping = List((0, 0), (1, 1), (2, 2))
+          CellUtils.findCellDiffsMapped(row1, row2, mapping, ignoredColumns = Set(1, 2)) shouldBe empty
         } finally {
           wb.close()
         }
@@ -260,7 +267,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
 
           // Map old col0->new col1, old col1->new col2, old col2->new col3
           val mapping = List((0, 1), (1, 2), (2, 3))
-          CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping) shouldBe true
+          CellUtils.findCellDiffsMapped(oldRow, newRow, mapping) shouldBe empty
         } finally {
           wb.close()
         }
@@ -279,7 +286,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           newRow.createCell(1).setCellValue("Z")
 
           val mapping = List((0, 0), (1, 1))
-          CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping) shouldBe false
+          CellUtils.findCellDiffsMapped(oldRow, newRow, mapping) should not be empty
         } finally {
           wb.close()
         }
@@ -298,8 +305,8 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           newRow.createCell(1).setCellValue("new-val")
 
           val mapping = List((0, 0), (1, 1))
-          CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping) shouldBe false
-          CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping, Set(1)) shouldBe true
+          CellUtils.findCellDiffsMapped(oldRow, newRow, mapping) should not be empty
+          CellUtils.findCellDiffsMapped(oldRow, newRow, mapping, ignoredColumns = Set(1)) shouldBe empty
         } finally {
           wb.close()
         }
@@ -314,7 +321,7 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
           val newRow = sheet.createRow(1)
           newRow.createCell(0).setCellValue("B")
 
-          CellUtils.rowsAreEqualMapped(oldRow, newRow, Nil) shouldBe true
+          CellUtils.findCellDiffsMapped(oldRow, newRow, Nil) shouldBe empty
         } finally {
           wb.close()
         }

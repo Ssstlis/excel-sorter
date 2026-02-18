@@ -1,13 +1,16 @@
 package io.github.ssstlis.excelsorter.processor
 
-import io.github.ssstlis.excelsorter.model.CellDiff
+import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
+import io.github.ssstlis.excelsorter.model.{CellDiff, ColumnMapping}
 
 import java.io.{FileInputStream, FileOutputStream}
 import java.nio.file.{Files, Paths, StandardCopyOption}
+import java.text.Normalizer
 import java.time.format.DateTimeFormatter
 
 import org.apache.poi.ss.usermodel._
 
+import scala.collection.mutable
 import scala.util.Try
 
 object CellUtils {
@@ -72,30 +75,15 @@ object CellUtils {
     Files.copy(Paths.get(sourcePath), Paths.get(destPath), StandardCopyOption.REPLACE_EXISTING)
   }
 
-  def rowsAreEqualMapped(
-    oldRow: Row,
-    newRow: Row,
-    columnMapping: List[(Int, Int)],
-    ignoredOldColumns: Set[Int] = Set.empty
-  ): Boolean = {
-    columnMapping.forall { case (oldIdx, newIdx) =>
-      ignoredOldColumns.contains(oldIdx) || {
-        val oldVal = getRowCellValue(oldRow, oldIdx)
-        val newVal = getRowCellValue(newRow, newIdx)
-        oldVal == newVal
-      }
-    }
-  }
-
   def findCellDiffsMapped(
     oldRow: Row,
     newRow: Row,
     columnMapping: List[(Int, Int)],
-    headerNames: Map[Int, String],
-    ignoredOldColumns: Set[Int] = Set.empty
+    headerNames: Map[Int, String] = Map.empty,
+    ignoredColumns: Set[Int] = Set.empty
   ): List[CellDiff] = {
     columnMapping.flatMap { case (oldIdx, newIdx) =>
-      if (ignoredOldColumns.contains(oldIdx)) {
+      if (ignoredColumns.contains(oldIdx)) {
         None
       } else {
         val oldVal = getRowCellValue(oldRow, oldIdx)
@@ -106,20 +94,84 @@ object CellUtils {
     }
   }
 
-  def rowsAreEqual(row1: Row, row2: Row, ignoredColumns: Set[Int] = Set.empty): Boolean = {
-    val maxCells = math.max(
-      Option(row1).map(_.getLastCellNum.toInt).getOrElse(0),
-      Option(row2).map(_.getLastCellNum.toInt).getOrElse(0)
-    )
+  def normalizeHeader(s: String): String = {
+    val normalized = Normalizer.normalize(s, Normalizer.Form.NFKC)
+    normalized.replaceAll("[\\p{Cf}]", "").trim
+  }
 
-    (maxCells <= 0) || {
-      (0 until maxCells).forall { colIdx =>
-        ignoredColumns.contains(colIdx) || {
-          val val1 = getRowCellValue(row1, colIdx)
-          val val2 = getRowCellValue(row2, colIdx)
-          val1 == val2
+  def extractHeaders(row: Row): List[(Int, String)] = {
+    val lastCell = row.getLastCellNum
+    if (lastCell < 0) Nil
+    else
+      (0 until lastCell).map { i =>
+        i -> normalizeHeader(Option(row.getCell(i)).map(getCellValueAsString).getOrElse(""))
+      }.toList
+  }
+
+  //format: off
+  def buildColumnMapping(
+    oldSheet: Sheet, newSheet: Sheet,
+    oldDataStartIdx: Int, newDataStartIdx: Int,
+    sheetName: String,
+    sortConfigsMap: Map[String, SheetSortingConfig] = Map.empty
+  ): ColumnMapping = {
+  //format: on
+    val oldHeaderRowIdx = oldDataStartIdx - 1
+    val newHeaderRowIdx = newDataStartIdx - 1
+
+    val oldHeaderRow = if (oldHeaderRowIdx >= 0) Option(oldSheet.getRow(oldHeaderRowIdx)) else None
+    val newHeaderRow = if (newHeaderRowIdx >= 0) Option(newSheet.getRow(newHeaderRowIdx)) else None
+
+    (oldHeaderRow, newHeaderRow) match {
+      case (Some(ohr), Some(nhr)) =>
+        val oldHeaders = extractHeaders(ohr)
+        val newHeaders = extractHeaders(nhr)
+
+        val newHeadersByName = mutable.Map[String, mutable.Queue[Int]]()
+        newHeaders.foreach { case (idx, name) =>
+          newHeadersByName.getOrElseUpdate(name, mutable.Queue[Int]()) += idx
         }
-      }
+
+        val usedNewIndices = mutable.Set[Int]()
+        val commonColumns  = mutable.ListBuffer[(Int, Int)]()
+        val oldOnlyCols    = mutable.ListBuffer[(Int, String)]()
+
+        oldHeaders.foreach { case (oldIdx, name) =>
+          newHeadersByName.get(name).flatMap(q => if (q.nonEmpty) Some(q.dequeue()) else None) match {
+            case Some(newIdx) =>
+              commonColumns += ((oldIdx, newIdx))
+              usedNewIndices += newIdx
+            case None =>
+              oldOnlyCols += ((oldIdx, name))
+          }
+        }
+
+        val newOnlyCols = newHeaders.filterNot { case (idx, _) => usedNewIndices.contains(idx) }
+
+        val sortColumnIndices = sortConfigsMap.get(sheetName) match {
+          case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
+          case _                                     => List(0)
+        }
+
+        val oldKeyIndices = sortColumnIndices
+        val newKeyIndices = sortColumnIndices.map { oldIdx =>
+          commonColumns.find(_._1 == oldIdx).map(_._2).getOrElse(oldIdx)
+        }
+
+        ColumnMapping(commonColumns.toList, oldOnlyCols.toList, newOnlyCols, oldKeyIndices, newKeyIndices)
+
+      case _ =>
+        val oldLastCell = Option(oldSheet.getRow(oldDataStartIdx)).map(_.getLastCellNum.toInt).getOrElse(0)
+        val newLastCell = Option(newSheet.getRow(newDataStartIdx)).map(_.getLastCellNum.toInt).getOrElse(0)
+        val maxCols     = math.max(oldLastCell, newLastCell)
+        val positional  = (0 until maxCols).map(i => (i, i)).toList
+
+        val sortColumnIndices = sortConfigsMap.get(sheetName) match {
+          case Some(cfg) if cfg.sortConfigs.nonEmpty => cfg.sortConfigs.map(_.columnIndex)
+          case _                                     => List(0)
+        }
+
+        ColumnMapping(positional, Nil, Nil, sortColumnIndices, sortColumnIndices)
     }
   }
 }
