@@ -267,20 +267,16 @@ class PairedSheetHighlighter(
     }
   }
 
+  private def buildXssfColor(r: Int, g: Int, b: Int) = new XSSFColor(Array[Byte](r.toByte, g.toByte, b.toByte), null)
+  private val xssfGreenColor = buildXssfColor(0xe1, 0xfa, 0xe1)
+  private val xssfPaleRedColor = buildXssfColor(0xff, 0xcc, 0xcc)
+  private val xssfPaleOrangeColor = buildXssfColor(0xf5, 0xe7, 0x9a)
+
   private def styleSetFillForegroundColor(style: XSSFCellStyle, color: HighlightColor): Unit = {
     color match {
-      case Green =>
-        style.setFillForegroundColor(
-          new XSSFColor(Array[Byte](0xe1.toByte, 0xfa.toByte, 0xe1.toByte), null)
-        )
-      case PaleRed =>
-        style.setFillForegroundColor(
-          new XSSFColor(Array[Byte](0xff.toByte, 0xcc.toByte, 0xcc.toByte), null)
-        )
-      case PaleOrange =>
-        style.setFillForegroundColor(
-          new XSSFColor(Array[Byte](0xf5.toByte, 0xe7.toByte, 0x9a.toByte), null)
-        )
+      case Green => style.setFillForegroundColor(xssfGreenColor)
+      case PaleRed => style.setFillForegroundColor(xssfPaleRedColor)
+      case PaleOrange => style.setFillForegroundColor(xssfPaleOrangeColor)
     }
   }
 
