@@ -61,13 +61,13 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
     }
   }
 
-  private def detectRowColor(path: String, sheetName: String, rowIndex: Int): DetectedColor = {
+  private def detectCellColor(path: String, sheetName: String, rowIndex: Int, colIndex: Int): DetectedColor = {
     val wb = CellUtils.loadWorkbook(path)
     try {
       val sheet = wb.getSheet(sheetName)
       val row   = sheet.getRow(rowIndex)
       if (row == null || row.getLastCellNum < 0) return NoHighlight
-      val cell = row.getCell(0)
+      val cell = row.getCell(colIndex)
       if (cell == null) return NoHighlight
       val style = cell.getCellStyle
       if (style.getFillPattern != FillPatternType.SOLID_FOREGROUND) return NoHighlight
@@ -96,6 +96,9 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       wb.close()
     }
   }
+
+  private def detectRowColor(path: String, sheetName: String, rowIndex: Int): DetectedColor =
+    detectCellColor(path, sheetName, rowIndex, 0)
 
   private def assertThinBlackBorders(path: String, sheetName: String, rowIndex: Int, colCount: Int): Unit = {
     val wb = CellUtils.loadWorkbook(path)
@@ -204,7 +207,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       detectRowColor(newCmpPath, "Sheet1", 2) shouldBe Green
     }
 
-    "should highlight same key + different data rows pale red" in {
+    "should highlight same key + different data rows with cell-level colors" in {
       val tmpDir  = Files.createTempDirectory("highlight-test").toFile
       val oldPath = new File(tmpDir, "test_old_sorted.xlsx").getAbsolutePath
       val newPath = new File(tmpDir, "test_new_sorted.xlsx").getAbsolutePath
@@ -228,10 +231,17 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       results should have size 1
       results.head.matchedDifferentDataCount shouldBe 2
 
-      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe PaleRed
-      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe PaleRed
-      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe PaleRed
-      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe PaleRed
+      // Column 0 (Date) is the key and has same values -> green
+      detectCellColor(oldCmpPath, "Sheet1", 1, 0) shouldBe Green
+      detectCellColor(oldCmpPath, "Sheet1", 2, 0) shouldBe Green
+      detectCellColor(newCmpPath, "Sheet1", 1, 0) shouldBe Green
+      detectCellColor(newCmpPath, "Sheet1", 2, 0) shouldBe Green
+
+      // Column 1 (Value) differs -> pale red
+      detectCellColor(oldCmpPath, "Sheet1", 1, 1) shouldBe PaleRed
+      detectCellColor(oldCmpPath, "Sheet1", 2, 1) shouldBe PaleRed
+      detectCellColor(newCmpPath, "Sheet1", 1, 1) shouldBe PaleRed
+      detectCellColor(newCmpPath, "Sheet1", 2, 1) shouldBe PaleRed
     }
 
     "should highlight key only in old file as pale orange" in {

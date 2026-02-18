@@ -95,8 +95,9 @@ object CellUtils {
     ignoredOldColumns: Set[Int] = Set.empty
   ): List[CellDiff] = {
     columnMapping.flatMap { case (oldIdx, newIdx) =>
-      if (ignoredOldColumns.contains(oldIdx)) None
-      else {
+      if (ignoredOldColumns.contains(oldIdx)) {
+        None
+      } else {
         val oldVal = getRowCellValue(oldRow, oldIdx)
         val newVal = getRowCellValue(newRow, newIdx)
         if (oldVal == newVal) None

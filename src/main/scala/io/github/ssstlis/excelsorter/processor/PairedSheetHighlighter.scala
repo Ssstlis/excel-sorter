@@ -174,9 +174,11 @@ class PairedSheetHighlighter(
           applyBackground(newRow, newWorkbook, newStyleCache, Green)
           processRowsState.copy(matchedSameData = processRowsState.matchedSameData + 1)
         } else {
-          applyBackground(oldRow, oldWorkbook, oldStyleCache, PaleRed)
-          applyBackground(newRow, newWorkbook, newStyleCache, PaleRed)
           val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping.commonColumns, headerNames, ignoredCols)
+          val oldDiffCols = diffs.map(_.oldColumnIndex).toSet ++ mapping.oldOnlyColumns.map(_._1).toSet
+          val newDiffCols = diffs.map(_.newColumnIndex).toSet ++ mapping.newOnlyColumns.map(_._1).toSet
+          applyCellLevelBackground(oldRow, oldWorkbook, oldStyleCache, oldDiffCols)
+          applyCellLevelBackground(newRow, newWorkbook, newStyleCache, newDiffCols)
           processRowsState.copy(
             matchedDiffData = processRowsState.matchedDiffData + 1,
             rowDiffs = RowDiff(key, oldRow.getRowNum + 1, newRow.getRowNum + 1, diffs) :: processRowsState.rowDiffs
@@ -265,6 +267,50 @@ class PairedSheetHighlighter(
     }
   }
 
+  private def styleSetFillForegroundColor(style: XSSFCellStyle, color: HighlightColor): Unit = {
+    color match {
+      case Green =>
+        style.setFillForegroundColor(
+          new XSSFColor(Array[Byte](0xe1.toByte, 0xfa.toByte, 0xe1.toByte), null)
+        )
+      case PaleRed =>
+        style.setFillForegroundColor(
+          new XSSFColor(Array[Byte](0xff.toByte, 0xcc.toByte, 0xcc.toByte), null)
+        )
+      case PaleOrange =>
+        style.setFillForegroundColor(
+          new XSSFColor(Array[Byte](0xf5.toByte, 0xe7.toByte, 0x9a.toByte), null)
+        )
+    }
+  }
+
+  private def applyCellBackgroundStyle(cell: Cell,
+                                       workbook: Workbook,
+                                       styleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+                                       color: HighlightColor) = {
+    val originalStyle = cell.getCellStyle
+    val key           = (originalStyle.getIndex, color)
+    val coloredStyle  = styleCache.getOrElseUpdate(
+      key, {
+        val newStyle = workbook.createCellStyle()
+        newStyle.cloneStyleFrom(originalStyle)
+        newStyle.setBorderTop(BorderStyle.THIN)
+        newStyle.setBorderBottom(BorderStyle.THIN)
+        newStyle.setBorderLeft(BorderStyle.THIN)
+        newStyle.setBorderRight(BorderStyle.THIN)
+        newStyle.setTopBorderColor(IndexedColors.BLACK.getIndex)
+        newStyle.setBottomBorderColor(IndexedColors.BLACK.getIndex)
+        newStyle.setLeftBorderColor(IndexedColors.BLACK.getIndex)
+        newStyle.setRightBorderColor(IndexedColors.BLACK.getIndex)
+        val xssfNew = newStyle.asInstanceOf[XSSFCellStyle]
+        styleSetFillForegroundColor(xssfNew, color)
+        newStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
+        newStyle
+      }
+    )
+    cell.setCellStyle(coloredStyle)
+  }
+
   private def applyBackground(
     row: Row,
     workbook: Workbook,
@@ -272,47 +318,25 @@ class PairedSheetHighlighter(
     color: HighlightColor
   ): Unit = {
     Option(row).foreach { row =>
-      val lastCellNum = row.getLastCellNum
-      (if (lastCellNum < 0) None else Some(lastCellNum)).foreach { lastCellNum =>
-        (0 until lastCellNum).foreach { colIdx =>
-          Option(row.getCell(colIdx)).foreach { cell =>
-            val originalStyle = cell.getCellStyle
-            val key           = (originalStyle.getIndex, color)
-            val coloredStyle  = styleCache.getOrElseUpdate(
-              key, {
-                val newStyle = workbook.createCellStyle()
-                newStyle.cloneStyleFrom(originalStyle)
+      (0 until row.getLastCellNum).foreach { colIdx =>
+        Option(row.getCell(colIdx)).foreach { cell =>
+          applyCellBackgroundStyle(cell, workbook, styleCache, color)
+        }
+      }
+    }
+  }
 
-                newStyle.setBorderTop(BorderStyle.THIN)
-                newStyle.setBorderBottom(BorderStyle.THIN)
-                newStyle.setBorderLeft(BorderStyle.THIN)
-                newStyle.setBorderRight(BorderStyle.THIN)
-                newStyle.setTopBorderColor(IndexedColors.BLACK.getIndex)
-                newStyle.setBottomBorderColor(IndexedColors.BLACK.getIndex)
-                newStyle.setLeftBorderColor(IndexedColors.BLACK.getIndex)
-                newStyle.setRightBorderColor(IndexedColors.BLACK.getIndex)
-
-                val xssfNew = newStyle.asInstanceOf[XSSFCellStyle]
-                color match {
-                  case Green =>
-                    xssfNew.setFillForegroundColor(
-                      new XSSFColor(Array[Byte](0xe1.toByte, 0xfa.toByte, 0xe1.toByte), null)
-                    )
-                  case PaleRed =>
-                    xssfNew.setFillForegroundColor(
-                      new XSSFColor(Array[Byte](0xff.toByte, 0xcc.toByte, 0xcc.toByte), null)
-                    )
-                  case PaleOrange =>
-                    xssfNew.setFillForegroundColor(
-                      new XSSFColor(Array[Byte](0xf5.toByte, 0xe7.toByte, 0x9a.toByte), null)
-                    )
-                }
-                newStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
-                newStyle
-              }
-            )
-            cell.setCellStyle(coloredStyle)
-          }
+  private def applyCellLevelBackground(
+    row: Row,
+    workbook: Workbook,
+    styleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+    diffColumnIndices: Set[Int]
+  ): Unit = {
+    Option(row).foreach { row =>
+      (0 until row.getLastCellNum).foreach { colIdx =>
+        Option(row.getCell(colIdx)).foreach { cell =>
+          val color = if (diffColumnIndices.contains(colIdx)) PaleRed else Green
+          applyCellBackgroundStyle(cell, workbook, styleCache, color)
         }
       }
     }
