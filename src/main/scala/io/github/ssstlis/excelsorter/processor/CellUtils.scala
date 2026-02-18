@@ -88,8 +88,11 @@ object CellUtils {
       } else {
         val oldVal = getRowCellValue(oldRow, oldIdx)
         val newVal = getRowCellValue(newRow, newIdx)
-        if (oldVal == newVal) None
-        else Some(CellDiff(headerNames.getOrElse(oldIdx, s"Column $oldIdx"), oldIdx, newIdx, oldVal, newVal))
+        if (oldVal == newVal) {
+          None
+        } else {
+          Some(CellDiff(headerNames.getOrElse(oldIdx, s"Column $oldIdx"), oldIdx, newIdx, oldVal, newVal))
+        }
       }
     }
   }
