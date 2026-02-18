@@ -169,26 +169,24 @@ class PairedSheetHighlighter(
     //format: on
     (oldByKey.get(key), newByKey.get(key)) match {
       case (Some(oldRow), Some(newRow)) =>
-        if (CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping.commonColumns, ignoredCols)) {
-          applyBackground(oldRow, oldWorkbook, oldStyleCache, Green)
-          applyBackground(newRow, newWorkbook, newStyleCache, Green)
+        val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping.commonColumns, headerNames, ignoredCols)
+        val oldDiffCols = diffs.map(_.oldColumnIndex).toSet ++ mapping.oldOnlyColumns.map(_._1).toSet
+        val newDiffCols = diffs.map(_.newColumnIndex).toSet ++ mapping.newOnlyColumns.map(_._1).toSet
+        applyBackground(oldRow, oldWorkbook, oldStyleCache, oldDiffCols, Green)
+        applyBackground(newRow, newWorkbook, newStyleCache, newDiffCols, Green)
+        if (diffs.isEmpty) {
           processRowsState.copy(matchedSameData = processRowsState.matchedSameData + 1)
         } else {
-          val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping.commonColumns, headerNames, ignoredCols)
-          val oldDiffCols = diffs.map(_.oldColumnIndex).toSet ++ mapping.oldOnlyColumns.map(_._1).toSet
-          val newDiffCols = diffs.map(_.newColumnIndex).toSet ++ mapping.newOnlyColumns.map(_._1).toSet
-          applyCellLevelBackground(oldRow, oldWorkbook, oldStyleCache, oldDiffCols)
-          applyCellLevelBackground(newRow, newWorkbook, newStyleCache, newDiffCols)
           processRowsState.copy(
             matchedDiffData = processRowsState.matchedDiffData + 1,
             rowDiffs = RowDiff(key, oldRow.getRowNum + 1, newRow.getRowNum + 1, diffs) :: processRowsState.rowDiffs
           )
         }
       case (Some(oldRow), None) =>
-        applyBackground(oldRow, oldWorkbook, oldStyleCache, PaleOrange)
+        applyBackground(oldRow, oldWorkbook, oldStyleCache, Set.empty, PaleOrange)
         processRowsState.copy(oldOnly = processRowsState.oldOnly + 1)
       case (None, Some(newRow)) =>
-        applyBackground(newRow, newWorkbook, newStyleCache, PaleOrange)
+        applyBackground(newRow, newWorkbook, newStyleCache, Set.empty, PaleOrange)
         processRowsState.copy(newOnly = processRowsState.newOnly + 1)
     }
   }
@@ -314,28 +312,14 @@ class PairedSheetHighlighter(
     row: Row,
     workbook: Workbook,
     styleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+    diffColumnIndices: Set[Int],
     color: HighlightColor
   ): Unit = {
     Option(row).foreach { row =>
       (0 until row.getLastCellNum).foreach { colIdx =>
         Option(row.getCell(colIdx)).foreach { cell =>
-          applyCellBackgroundStyle(cell, workbook, styleCache, color)
-        }
-      }
-    }
-  }
-
-  private def applyCellLevelBackground(
-    row: Row,
-    workbook: Workbook,
-    styleCache: mutable.Map[(Short, HighlightColor), CellStyle],
-    diffColumnIndices: Set[Int]
-  ): Unit = {
-    Option(row).foreach { row =>
-      (0 until row.getLastCellNum).foreach { colIdx =>
-        Option(row.getCell(colIdx)).foreach { cell =>
-          val color = if (diffColumnIndices.contains(colIdx)) PaleRed else Green
-          applyCellBackgroundStyle(cell, workbook, styleCache, color)
+          val colorToApply = if (diffColumnIndices.contains(colIdx)) PaleRed else color
+          applyCellBackgroundStyle(cell, workbook, styleCache, colorToApply)
         }
       }
     }
