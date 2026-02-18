@@ -96,7 +96,8 @@ class PairedSheetHighlighter(
     //format: on
     (oldByKey.get(key), newByKey.get(key)) match {
       case (Some(oldRow), Some(newRow)) =>
-        val diffs       = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping.commonColumns, headerNames, ignoredCols)
+        val diffs =
+          CellUtils.findCellDiffsMapped(oldRow, newRow, Mapping.from(mapping.commonColumns), headerNames, ignoredCols)
         val oldDiffCols = diffs.map(_.oldColumnIndex).toSet ++ mapping.oldOnlyColumns.map(_._1).toSet
         val newDiffCols = diffs.map(_.newColumnIndex).toSet ++ mapping.newOnlyColumns.map(_._1).toSet
         applyBackground(oldRow, oldWorkbook, oldStyleCache, oldDiffCols, Green)

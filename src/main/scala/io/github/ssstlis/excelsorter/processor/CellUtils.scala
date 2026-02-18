@@ -1,7 +1,7 @@
 package io.github.ssstlis.excelsorter.processor
 
 import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
-import io.github.ssstlis.excelsorter.model.{CellDiff, ColumnMapping}
+import io.github.ssstlis.excelsorter.model.{CellDiff, ColumnMapping, Mapping}
 
 import java.io.{FileInputStream, FileOutputStream}
 import java.nio.file.{Files, Paths, StandardCopyOption}
@@ -78,21 +78,24 @@ object CellUtils {
   def findCellDiffsMapped(
     oldRow: Row,
     newRow: Row,
-    columnMapping: List[(Int, Int)],
+    mapping: Mapping = Mapping.identity,
     headerNames: Map[Int, String] = Map.empty,
     ignoredColumns: Set[Int] = Set.empty
   ): List[CellDiff] = {
-    columnMapping.flatMap { case (oldIdx, newIdx) =>
+    val pairs: List[(Int, Int)] = mapping match {
+      case Mapping.Identity =>
+        val maxCols = math.max(oldRow.getLastCellNum.toInt, newRow.getLastCellNum.toInt)
+        (0 until maxCols).map(i => i -> i).toList
+      case Mapping.Explicit(ps) => ps
+    }
+    pairs.flatMap { case (oldIdx, newIdx) =>
       if (ignoredColumns.contains(oldIdx)) {
         None
       } else {
         val oldVal = getRowCellValue(oldRow, oldIdx)
         val newVal = getRowCellValue(newRow, newIdx)
-        if (oldVal == newVal) {
-          None
-        } else {
-          Some(CellDiff(headerNames.getOrElse(oldIdx, s"Column $oldIdx"), oldIdx, newIdx, oldVal, newVal))
-        }
+        if (oldVal == newVal) None
+        else Some(CellDiff(headerNames.getOrElse(oldIdx, s"Column $oldIdx"), oldIdx, newIdx, oldVal, newVal))
       }
     }
   }
@@ -104,11 +107,9 @@ object CellUtils {
 
   def extractHeaders(row: Row): List[(Int, String)] = {
     val lastCell = row.getLastCellNum
-    if (lastCell < 0) Nil
-    else
-      (0 until lastCell).map { i =>
-        i -> normalizeHeader(Option(row.getCell(i)).map(getCellValueAsString).getOrElse(""))
-      }.toList
+    (0 until lastCell).map { i =>
+      i -> normalizeHeader(Option(row.getCell(i)).map(getCellValueAsString).getOrElse(""))
+    }.toList
   }
 
   //format: off
@@ -142,10 +143,10 @@ object CellUtils {
         oldHeaders.foreach { case (oldIdx, name) =>
           newHeadersByName.get(name).flatMap(q => if (q.nonEmpty) Some(q.dequeue()) else None) match {
             case Some(newIdx) =>
-              commonColumns += ((oldIdx, newIdx))
+              commonColumns += (oldIdx -> newIdx)
               usedNewIndices += newIdx
             case None =>
-              oldOnlyCols += ((oldIdx, name))
+              oldOnlyCols += (oldIdx -> name)
           }
         }
 
