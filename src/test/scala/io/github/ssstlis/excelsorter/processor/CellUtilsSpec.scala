@@ -1,5 +1,6 @@
 package io.github.ssstlis.excelsorter.processor
 
+import io.github.ssstlis.excelsorter.model.CellDiff
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers

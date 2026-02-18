@@ -1,5 +1,7 @@
 package io.github.ssstlis.excelsorter.processor
 
+import io.github.ssstlis.excelsorter.model.CellDiff
+
 import java.io.{FileInputStream, FileOutputStream}
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.time.format.DateTimeFormatter

@@ -3,6 +3,7 @@ package io.github.ssstlis.excelsorter.processor
 import io.github.ssstlis.excelsorter.config.compare.CompareConfig
 import io.github.ssstlis.excelsorter.config.track.TrackConfig
 import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
+import io.github.ssstlis.excelsorter.model.CompareResult
 import org.apache.poi.ss.usermodel._
 
 import scala.jdk.CollectionConverters._

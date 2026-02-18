@@ -3,6 +3,7 @@ package io.github.ssstlis.excelsorter.processor
 import io.github.ssstlis.excelsorter.config.compare.CompareConfig
 import io.github.ssstlis.excelsorter.config.track.TrackConfig
 import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
+import io.github.ssstlis.excelsorter.model._
 import org.apache.poi.ss.usermodel._
 import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFColor}
 
@@ -63,13 +64,13 @@ class PairedSheetHighlighter(
     sortedPath.replace("_sorted.xlsx", "_compared.xlsx")
   }
 
+  //format: off
   private[processor] def buildColumnMapping(
-    oldSheet: Sheet,
-    newSheet: Sheet,
-    oldDataStartIdx: Int,
-    newDataStartIdx: Int,
+    oldSheet: Sheet, newSheet: Sheet,
+    oldDataStartIdx: Int, newDataStartIdx: Int,
     sheetName: String
   ): ColumnMapping = {
+  //format: on
     val oldHeaderRowIdx = oldDataStartIdx - 1
     val newHeaderRowIdx = newDataStartIdx - 1
 
@@ -156,19 +157,16 @@ class PairedSheetHighlighter(
     rowDiffs: List[RowDiff] = Nil
   )
 
+  //format: off
   private def processRows(
     key: String,
-    oldByKey: Map[String, Row],
-    newByKey: Map[String, Row],
-    mapping: ColumnMapping,
-    headerNames: Map[Int, String],
-    ignoredCols: Set[Int],
-    oldWorkbook: Workbook,
-    oldStyleCache: mutable.Map[(Short, HighlightColor), CellStyle],
-    newWorkbook: Workbook,
-    newStyleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+    oldByKey: Map[String, Row], newByKey: Map[String, Row],
+    mapping: ColumnMapping, headerNames: Map[Int, String], ignoredCols: Set[Int],
+    oldWorkbook: Workbook, oldStyleCache: mutable.Map[(Short, HighlightColor), CellStyle],
+    newWorkbook: Workbook, newStyleCache: mutable.Map[(Short, HighlightColor), CellStyle],
     processRowsState: ProcessRowsState
   ): ProcessRowsState = {
+    //format: on
     (oldByKey.get(key), newByKey.get(key)) match {
       case (Some(oldRow), Some(newRow)) =>
         if (CellUtils.rowsAreEqualMapped(oldRow, newRow, mapping.commonColumns, ignoredCols)) {
@@ -240,21 +238,18 @@ class PairedSheetHighlighter(
         val oldStyleCache = mutable.Map[(Short, HighlightColor), CellStyle]()
         val newStyleCache = mutable.Map[(Short, HighlightColor), CellStyle]()
 
+        //format: off
         val processRowsState = allKeys.foldLeft(ProcessRowsState()) { case (state, key) =>
           processRows(
             key,
-            oldByKey,
-            newByKey,
-            mapping,
-            headerNames,
-            ignoredCols,
-            oldWorkbook,
-            oldStyleCache,
-            newWorkbook,
-            newStyleCache,
+            oldByKey, newByKey,
+            mapping, headerNames, ignoredCols,
+            oldWorkbook, oldStyleCache,
+            newWorkbook, newStyleCache,
             state
           )
         }
+        //format: on
 
         HighlightResult(
           sheetName = sheetName,

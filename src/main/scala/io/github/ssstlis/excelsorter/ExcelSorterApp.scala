@@ -1,12 +1,14 @@
 package io.github.ssstlis.excelsorter
 
-import java.io.{File, PrintWriter}
 import com.typesafe.config.ConfigFactory
 import io.github.ssstlis.excelsorter.config._
 import io.github.ssstlis.excelsorter.config.compare.CompareConfig
 import io.github.ssstlis.excelsorter.config.track._
 import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
+import io.github.ssstlis.excelsorter.model.{CompareResult, HighlightResult}
 import io.github.ssstlis.excelsorter.processor._
+
+import java.io.{File, PrintWriter}
 
 import scala.util.{Failure, Success, Try}
 
