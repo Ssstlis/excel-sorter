@@ -11,12 +11,13 @@ import io.github.ssstlis.excelsorter.dsl._
 import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
 import org.apache.poi.ss.usermodel.{BorderStyle, FillPatternType, IndexedColors}
 import org.apache.poi.xssf.usermodel.{XSSFCellStyle, XSSFWorkbook}
+import org.scalatest.Checkpoints
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 
-class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
+class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
   private sealed trait DetectedColor
   private case object Green       extends DetectedColor
@@ -153,10 +154,12 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                 = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      oldCmpPath should endWith("_compared.xlsx")
-      newCmpPath should endWith("_compared.xlsx")
-      new File(oldCmpPath).exists() shouldBe true
-      new File(newCmpPath).exists() shouldBe true
+      val cp = new Checkpoint
+      cp { oldCmpPath should endWith("_compared.xlsx") }
+      cp { newCmpPath should endWith("_compared.xlsx") }
+      cp { new File(oldCmpPath).exists() shouldBe true }
+      cp { new File(newCmpPath).exists() shouldBe true }
+      cp.reportAll()
     }
 
     "should not modify _sorted files" in {
@@ -173,8 +176,10 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter = PairedSheetHighlighter(Set("Sheet1"))
       highlighter.highlightPairedSheets(oldPath, newPath)
 
-      readSheetRows(oldPath, "Sheet1") shouldBe oldOriginalRows
-      readSheetRows(newPath, "Sheet1") shouldBe newOriginalRows
+      val cp = new Checkpoint
+      cp { readSheetRows(oldPath, "Sheet1") shouldBe oldOriginalRows }
+      cp { readSheetRows(newPath, "Sheet1") shouldBe newOriginalRows }
+      cp.reportAll()
     }
 
     "should highlight same key + same data rows green" in {
@@ -198,13 +203,14 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                       = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      results should have size 1
-      results.head.matchedSameDataCount shouldBe 2
-
-      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green
-      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green
-      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green
-      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe Green
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.matchedSameDataCount shouldBe 2 }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green }
+      cp { detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green }
+      cp { detectRowColor(newCmpPath, "Sheet1", 2) shouldBe Green }
+      cp.reportAll()
     }
 
     "should highlight same key + different data rows with cell-level colors" in {
@@ -228,20 +234,20 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                       = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      results should have size 1
-      results.head.matchedDifferentDataCount shouldBe 2
-
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.matchedDifferentDataCount shouldBe 2 }
       // Column 0 (Date) is the key and has same values -> green
-      detectCellColor(oldCmpPath, "Sheet1", 1, 0) shouldBe Green
-      detectCellColor(oldCmpPath, "Sheet1", 2, 0) shouldBe Green
-      detectCellColor(newCmpPath, "Sheet1", 1, 0) shouldBe Green
-      detectCellColor(newCmpPath, "Sheet1", 2, 0) shouldBe Green
-
+      cp { detectCellColor(oldCmpPath, "Sheet1", 1, 0) shouldBe Green }
+      cp { detectCellColor(oldCmpPath, "Sheet1", 2, 0) shouldBe Green }
+      cp { detectCellColor(newCmpPath, "Sheet1", 1, 0) shouldBe Green }
+      cp { detectCellColor(newCmpPath, "Sheet1", 2, 0) shouldBe Green }
       // Column 1 (Value) differs -> pale red
-      detectCellColor(oldCmpPath, "Sheet1", 1, 1) shouldBe PaleRed
-      detectCellColor(oldCmpPath, "Sheet1", 2, 1) shouldBe PaleRed
-      detectCellColor(newCmpPath, "Sheet1", 1, 1) shouldBe PaleRed
-      detectCellColor(newCmpPath, "Sheet1", 2, 1) shouldBe PaleRed
+      cp { detectCellColor(oldCmpPath, "Sheet1", 1, 1) shouldBe PaleRed }
+      cp { detectCellColor(oldCmpPath, "Sheet1", 2, 1) shouldBe PaleRed }
+      cp { detectCellColor(newCmpPath, "Sheet1", 1, 1) shouldBe PaleRed }
+      cp { detectCellColor(newCmpPath, "Sheet1", 2, 1) shouldBe PaleRed }
+      cp.reportAll()
     }
 
     "should highlight key only in old file as pale orange" in {
@@ -260,13 +266,14 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                       = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      results should have size 1
-      results.head.matchedSameDataCount shouldBe 1
-      results.head.oldOnlyCount shouldBe 1
-
-      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green
-      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe PaleOrange
-      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.matchedSameDataCount shouldBe 1 }
+      cp { results.head.oldOnlyCount shouldBe 1 }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe PaleOrange }
+      cp { detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green }
+      cp.reportAll()
     }
 
     "should highlight key only in new file as pale orange" in {
@@ -285,13 +292,14 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                       = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      results should have size 1
-      results.head.matchedSameDataCount shouldBe 1
-      results.head.newOnlyCount shouldBe 1
-
-      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green
-      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green
-      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe PaleOrange
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.matchedSameDataCount shouldBe 1 }
+      cp { results.head.newOnlyCount shouldBe 1 }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green }
+      cp { detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green }
+      cp { detectRowColor(newCmpPath, "Sheet1", 2) shouldBe PaleOrange }
+      cp.reportAll()
     }
 
     "should preserve all rows (no removal)" in {
@@ -315,8 +323,10 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                 = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      readSheetRows(oldCmpPath, "Sheet1") should have size 3
-      readSheetRows(newCmpPath, "Sheet1") should have size 3
+      val cp = new Checkpoint
+      cp { readSheetRows(oldCmpPath, "Sheet1") should have size 3 }
+      cp { readSheetRows(newCmpPath, "Sheet1") should have size 3 }
+      cp.reportAll()
     }
 
     "should return correct HighlightResult counts" in {
@@ -350,10 +360,12 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
 
       results should have size 1
       val r = results.head
-      r.matchedSameDataCount shouldBe 1
-      r.matchedDifferentDataCount shouldBe 1
-      r.oldOnlyCount shouldBe 1
-      r.newOnlyCount shouldBe 1
+      val cp = new Checkpoint
+      cp { r.matchedSameDataCount shouldBe 1 }
+      cp { r.matchedDifferentDataCount shouldBe 1 }
+      cp { r.oldOnlyCount shouldBe 1 }
+      cp { r.newOnlyCount shouldBe 1 }
+      cp.reportAll()
     }
 
     "should use trackConfig for data row detection" in {
@@ -380,17 +392,18 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                       = PairedSheetHighlighter(Set("Sheet1"), track)
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      results should have size 1
-      results.head.matchedSameDataCount shouldBe 1
-      results.head.oldOnlyCount shouldBe 1
-      results.head.newOnlyCount shouldBe 1
-
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.matchedSameDataCount shouldBe 1 }
+      cp { results.head.oldOnlyCount shouldBe 1 }
+      cp { results.head.newOnlyCount shouldBe 1 }
       // Header rows should not be highlighted
-      detectRowColor(oldCmpPath, "Sheet1", 0) shouldBe NoHighlight
-      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe NoHighlight
+      cp { detectRowColor(oldCmpPath, "Sheet1", 0) shouldBe NoHighlight }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe NoHighlight }
       // Data rows should be highlighted
-      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green
-      detectRowColor(oldCmpPath, "Sheet1", 3) shouldBe PaleOrange
+      cp { detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 3) shouldBe PaleOrange }
+      cp.reportAll()
     }
 
     "should ignore specified columns when comparing (compareConfig)" in {
@@ -416,14 +429,15 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                       = PairedSheetHighlighter(Set("Sheet1"), compareConfig = compare)
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      results should have size 1
-      results.head.matchedSameDataCount shouldBe 2
-      results.head.matchedDifferentDataCount shouldBe 0
-
-      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green
-      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green
-      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green
-      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe Green
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.matchedSameDataCount shouldBe 2 }
+      cp { results.head.matchedDifferentDataCount shouldBe 0 }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe Green }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe Green }
+      cp { detectRowColor(newCmpPath, "Sheet1", 1) shouldBe Green }
+      cp { detectRowColor(newCmpPath, "Sheet1", 2) shouldBe Green }
+      cp.reportAll()
     }
 
     "should use sortConfigsMap columns as keys" in {
@@ -453,12 +467,11 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
 
       results should have size 1
       val r = results.head
-      // Key "A" in both: dates differ -> pale red (unless we also ignore date column)
-      // Key "B" only in old -> pale orange
-      // Key "C" only in new -> pale orange
-      r.matchedDifferentDataCount shouldBe 1
-      r.oldOnlyCount shouldBe 1
-      r.newOnlyCount shouldBe 1
+      val cp = new Checkpoint
+      cp { r.matchedDifferentDataCount shouldBe 1 }
+      cp { r.oldOnlyCount shouldBe 1 }
+      cp { r.newOnlyCount shouldBe 1 }
+      cp.reportAll()
     }
 
     "should highlight all rows green when all data is the same" in {
@@ -483,15 +496,17 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.matchedSameDataCount shouldBe 3
-      results.head.matchedDifferentDataCount shouldBe 0
-      results.head.oldOnlyCount shouldBe 0
-      results.head.newOnlyCount shouldBe 0
-
+      val r = results.head
+      val cp = new Checkpoint
+      cp { r.matchedSameDataCount shouldBe 3 }
+      cp { r.matchedDifferentDataCount shouldBe 0 }
+      cp { r.oldOnlyCount shouldBe 0 }
+      cp { r.newOnlyCount shouldBe 0 }
       (1 to 3).foreach { i =>
-        detectRowColor(oldCmpPath, "Sheet1", i) shouldBe Green
-        detectRowColor(newCmpPath, "Sheet1", i) shouldBe Green
+        cp { detectRowColor(oldCmpPath, "Sheet1", i) shouldBe Green }
+        cp { detectRowColor(newCmpPath, "Sheet1", i) shouldBe Green }
       }
+      cp.reportAll()
     }
 
     "should apply thin black borders to all highlighted cells (green)" in {
@@ -601,9 +616,11 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.matchedSameDataCount shouldBe 2
-      results.head.matchedDifferentDataCount shouldBe 0
-      results.head.newOnlyColumns should contain("Extra")
+      val cp = new Checkpoint
+      cp { results.head.matchedSameDataCount shouldBe 2 }
+      cp { results.head.matchedDifferentDataCount shouldBe 0 }
+      cp { results.head.newOnlyColumns should contain("Extra") }
+      cp.reportAll()
     }
 
     "should match columns by header name when old file has extra column" in {
@@ -628,9 +645,11 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.matchedSameDataCount shouldBe 2
-      results.head.matchedDifferentDataCount shouldBe 0
-      results.head.oldOnlyColumns should contain("Extra")
+      val cp = new Checkpoint
+      cp { results.head.matchedSameDataCount shouldBe 2 }
+      cp { results.head.matchedDifferentDataCount shouldBe 0 }
+      cp { results.head.oldOnlyColumns should contain("Extra") }
+      cp.reportAll()
     }
 
     "should handle reordered columns via header matching" in {
@@ -668,10 +687,12 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.matchedSameDataCount shouldBe 2
-      results.head.matchedDifferentDataCount shouldBe 0
-      results.head.oldOnlyColumns shouldBe empty
-      results.head.newOnlyColumns shouldBe empty
+      val cp = new Checkpoint
+      cp { results.head.matchedSameDataCount shouldBe 2 }
+      cp { results.head.matchedDifferentDataCount shouldBe 0 }
+      cp { results.head.oldOnlyColumns shouldBe empty }
+      cp { results.head.newOnlyColumns shouldBe empty }
+      cp.reportAll()
     }
 
     "should report rowDiffs with cell-level details for changed rows" in {
@@ -686,15 +707,17 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      val r = results.head
-      r.matchedDifferentDataCount shouldBe 1
-      r.rowDiffs should have size 1
+      val r  = results.head
       val rd = r.rowDiffs.head
-      rd.key shouldBe "2024-01-01"
-      rd.cellDiffs should have size 1
-      rd.cellDiffs.head.columnName shouldBe "Value"
-      rd.cellDiffs.head.oldValue shouldBe "old-val"
-      rd.cellDiffs.head.newValue shouldBe "new-val"
+      val cp = new Checkpoint
+      cp { r.matchedDifferentDataCount shouldBe 1 }
+      cp { r.rowDiffs should have size 1 }
+      cp { rd.key shouldBe "2024-01-01" }
+      cp { rd.cellDiffs should have size 1 }
+      cp { rd.cellDiffs.head.columnName shouldBe "Value" }
+      cp { rd.cellDiffs.head.oldValue shouldBe "old-val" }
+      cp { rd.cellDiffs.head.newValue shouldBe "new-val" }
+      cp.reportAll()
     }
 
     "should report empty rowDiffs when all rows match" in {
@@ -708,8 +731,10 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter     = PairedSheetHighlighter(Set("Sheet1"))
       val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      results should have size 1
-      results.head.rowDiffs shouldBe empty
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.rowDiffs shouldBe empty }
+      cp.reportAll()
     }
 
     "should report oldOnlyColumns and newOnlyColumns in result" in {
@@ -724,8 +749,10 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.oldOnlyColumns shouldBe List("OldExtra")
-      results.head.newOnlyColumns shouldBe List("NewExtra")
+      val cp = new Checkpoint
+      cp { results.head.oldOnlyColumns shouldBe List("OldExtra") }
+      cp { results.head.newOnlyColumns shouldBe List("NewExtra") }
+      cp.reportAll()
     }
 
     "data integrity: values in compared files should match original inputs, no cross-file contamination" in {
@@ -749,26 +776,23 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val highlighter                 = PairedSheetHighlighter(Set("Sheet1"))
       val (oldCmpPath, newCmpPath, _) = highlighter.highlightPairedSheets(oldPath, newPath)
 
-      val oldCmpRows = readSheetRows(oldCmpPath, "Sheet1")
-      val newCmpRows = readSheetRows(newCmpPath, "Sheet1")
-
-      // Old file should contain only original old values — no contamination from new file
-      oldCmpRows(1) shouldBe List("2024-01-01", "OLD-A")
-      oldCmpRows(2) shouldBe List("2024-01-02", "OLD-B")
-      oldCmpRows(3) shouldBe List("2024-01-03", "OLD-ONLY")
-
-      // New file should contain only original new values — no contamination from old file
-      newCmpRows(1) shouldBe List("2024-01-01", "NEW-A")
-      newCmpRows(2) shouldBe List("2024-01-02", "OLD-B")
-      newCmpRows(3) shouldBe List("2024-01-04", "NEW-ONLY")
-
-      // Specifically verify no old value leaked into new file or vice versa
+      val oldCmpRows    = readSheetRows(oldCmpPath, "Sheet1")
+      val newCmpRows    = readSheetRows(newCmpPath, "Sheet1")
       val oldFlatValues = oldCmpRows.drop(1).flatten
       val newFlatValues = newCmpRows.drop(1).flatten
-      oldFlatValues should not contain "NEW-A"
-      oldFlatValues should not contain "NEW-ONLY"
-      newFlatValues should not contain "OLD-A"
-      newFlatValues should not contain "OLD-ONLY"
+
+      val cp = new Checkpoint
+      cp { oldCmpRows(1) shouldBe List("2024-01-01", "OLD-A") }
+      cp { oldCmpRows(2) shouldBe List("2024-01-02", "OLD-B") }
+      cp { oldCmpRows(3) shouldBe List("2024-01-03", "OLD-ONLY") }
+      cp { newCmpRows(1) shouldBe List("2024-01-01", "NEW-A") }
+      cp { newCmpRows(2) shouldBe List("2024-01-02", "OLD-B") }
+      cp { newCmpRows(3) shouldBe List("2024-01-04", "NEW-ONLY") }
+      cp { oldFlatValues should not contain "NEW-A" }
+      cp { oldFlatValues should not contain "NEW-ONLY" }
+      cp { newFlatValues should not contain "OLD-A" }
+      cp { newFlatValues should not contain "OLD-ONLY" }
+      cp.reportAll()
     }
 
     "data integrity: compared files preserve values with extra columns in new file" in {
@@ -790,14 +814,12 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val oldCmpRows = readSheetRows(oldCmpPath, "Sheet1")
       val newCmpRows = readSheetRows(newCmpPath, "Sheet1")
 
-      // Old file values preserved
-      oldCmpRows(1) shouldBe List("2024-01-01", "OLD-VAL")
-      // New file values preserved including extra column
-      newCmpRows(1) shouldBe List("2024-01-01", "EXTRA-DATA", "NEW-VAL")
-
-      // No cross-contamination
-      oldCmpRows(1) should not contain "EXTRA-DATA"
-      oldCmpRows(1) should not contain "NEW-VAL"
+      val cp = new Checkpoint
+      cp { oldCmpRows(1) shouldBe List("2024-01-01", "OLD-VAL") }
+      cp { newCmpRows(1) shouldBe List("2024-01-01", "EXTRA-DATA", "NEW-VAL") }
+      cp { oldCmpRows(1) should not contain "EXTRA-DATA" }
+      cp { oldCmpRows(1) should not contain "NEW-VAL" }
+      cp.reportAll()
     }
 
     "should highlight all rows pale orange when no matching keys" in {
@@ -822,15 +844,17 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers {
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      results.head.matchedSameDataCount shouldBe 0
-      results.head.matchedDifferentDataCount shouldBe 0
-      results.head.oldOnlyCount shouldBe 2
-      results.head.newOnlyCount shouldBe 2
-
-      detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe PaleOrange
-      detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe PaleOrange
-      detectRowColor(newCmpPath, "Sheet1", 1) shouldBe PaleOrange
-      detectRowColor(newCmpPath, "Sheet1", 2) shouldBe PaleOrange
+      val r = results.head
+      val cp = new Checkpoint
+      cp { r.matchedSameDataCount shouldBe 0 }
+      cp { r.matchedDifferentDataCount shouldBe 0 }
+      cp { r.oldOnlyCount shouldBe 2 }
+      cp { r.newOnlyCount shouldBe 2 }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 1) shouldBe PaleOrange }
+      cp { detectRowColor(oldCmpPath, "Sheet1", 2) shouldBe PaleOrange }
+      cp { detectRowColor(newCmpPath, "Sheet1", 1) shouldBe PaleOrange }
+      cp { detectRowColor(newCmpPath, "Sheet1", 2) shouldBe PaleOrange }
+      cp.reportAll()
     }
   }
 }

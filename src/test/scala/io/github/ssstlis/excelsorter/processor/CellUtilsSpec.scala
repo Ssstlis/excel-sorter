@@ -2,10 +2,11 @@ package io.github.ssstlis.excelsorter.processor
 
 import io.github.ssstlis.excelsorter.model.{CellDiff, Mapping}
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.scalatest.Checkpoints
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-class CellUtilsSpec extends AnyFreeSpec with Matchers {
+class CellUtilsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
   "CellUtils" - {
 
@@ -216,8 +217,10 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
             row2.createCell(2).setCellValue("same")
 
             val mapping = Mapping.Identity
-            CellUtils.findCellDiffsMapped(row1, row2, mapping) should not be empty
-            CellUtils.findCellDiffsMapped(row1, row2, mapping, ignoredColumns = Set(1)) shouldBe empty
+            val cp = new Checkpoint
+            cp { CellUtils.findCellDiffsMapped(row1, row2, mapping) should not be empty }
+            cp { CellUtils.findCellDiffsMapped(row1, row2, mapping, ignoredColumns = Set(1)) shouldBe empty }
+            cp.reportAll()
           } finally {
             wb.close()
           }
@@ -280,9 +283,11 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
             val headers = Map(0 -> "Date", 1 -> "Amount", 2 -> "Note")
 
             val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, Mapping.Identity, headers)
-            diffs should have size 2
-            diffs(0) shouldBe CellDiff("Amount", 1, 1, "old-val", "new-val")
-            diffs(1) shouldBe CellDiff("Note", 2, 2, "old-val2", "new-val2")
+            val cp = new Checkpoint
+            cp { diffs should have size 2 }
+            cp { diffs(0) shouldBe CellDiff("Amount", 1, 1, "old-val", "new-val") }
+            cp { diffs(1) shouldBe CellDiff("Note", 2, 2, "old-val2", "new-val2") }
+            cp.reportAll()
           } finally {
             wb.close()
           }
@@ -326,8 +331,10 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
             val headers = Map(0 -> "First", 1 -> "Second")
 
             val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, mapping, headers)
-            diffs should have size 1
-            diffs.head shouldBe CellDiff("Second", 1, 2, "B", "changed-B")
+            val cp = new Checkpoint
+            cp { diffs should have size 1 }
+            cp { diffs.head shouldBe CellDiff("Second", 1, 2, "B", "changed-B") }
+            cp.reportAll()
           } finally {
             wb.close()
           }
@@ -351,9 +358,11 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
             newRow.createCell(2).setCellValue("same")
 
             val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, Mapping.identity)
-            diffs should have size 2
-            diffs(0).oldColumnIndex shouldBe 0
-            diffs(1).oldColumnIndex shouldBe 1
+            val cp = new Checkpoint
+            cp { diffs should have size 2 }
+            cp { diffs(0).oldColumnIndex shouldBe 0 }
+            cp { diffs(1).oldColumnIndex shouldBe 1 }
+            cp.reportAll()
           } finally {
             wb.close()
           }
@@ -404,8 +413,10 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
             newRow.createCell(1).setCellValue("new-val")
             newRow.createCell(2).setCellValue("same2")
 
-            CellUtils.findCellDiffsMapped(oldRow, newRow, Mapping.identity) should not be empty
-            CellUtils.findCellDiffsMapped(oldRow, newRow, Mapping.identity, ignoredColumns = Set(1)) shouldBe empty
+            val cp = new Checkpoint
+            cp { CellUtils.findCellDiffsMapped(oldRow, newRow, Mapping.identity) should not be empty }
+            cp { CellUtils.findCellDiffsMapped(oldRow, newRow, Mapping.identity, ignoredColumns = Set(1)) shouldBe empty }
+            cp.reportAll()
           } finally {
             wb.close()
           }
@@ -423,10 +434,12 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
             newRow.createCell(1).setCellValue("extra") // absent in old → "" vs "extra"
 
             val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow, Mapping.identity)
-            diffs should have size 1
-            diffs.head.oldColumnIndex shouldBe 1
-            diffs.head.oldValue shouldBe ""
-            diffs.head.newValue shouldBe "extra"
+            val cp = new Checkpoint
+            cp { diffs should have size 1 }
+            cp { diffs.head.oldColumnIndex shouldBe 1 }
+            cp { diffs.head.oldValue shouldBe "" }
+            cp { diffs.head.newValue shouldBe "extra" }
+            cp.reportAll()
           } finally {
             wb.close()
           }
@@ -446,8 +459,10 @@ class CellUtilsSpec extends AnyFreeSpec with Matchers {
 
             // no mapping argument — uses Mapping.identity by default
             val diffs = CellUtils.findCellDiffsMapped(oldRow, newRow)
-            diffs should have size 1
-            diffs.head.oldColumnIndex shouldBe 1
+            val cp = new Checkpoint
+            cp { diffs should have size 1 }
+            cp { diffs.head.oldColumnIndex shouldBe 1 }
+            cp.reportAll()
           } finally {
             wb.close()
           }

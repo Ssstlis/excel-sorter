@@ -6,10 +6,11 @@ import io.github.ssstlis.excelsorter.config.SheetSelector
 import io.github.ssstlis.excelsorter.processor.CellUtils
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.scalatest.Checkpoints
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-class TrackConfigSpec extends AnyFreeSpec with Matchers {
+class TrackConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
   "TrackConfig.readTrackConfig" - {
 
     "should return empty TrackConfig when tracks key is absent" in {
@@ -38,8 +39,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
       val trackConfig = preTrackConfig.toOption.get
-      trackConfig.policies should have size 1
-      trackConfig.policies.head.sheetSelector shouldBe SheetSelector.Default
+      val cp = new Checkpoint
+      cp { trackConfig.policies should have size 1 }
+      cp { trackConfig.policies.head.sheetSelector shouldBe SheetSelector.Default }
+      cp.reportAll()
     }
 
     "should parse named sheet selector" in {
@@ -57,8 +60,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
       val trackConfig = preTrackConfig.toOption.get
-      trackConfig.policies should have size 1
-      trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("MySheet")
+      val cp = new Checkpoint
+      cp { trackConfig.policies should have size 1 }
+      cp { trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("MySheet") }
+      cp.reportAll()
     }
 
     "should parse indexed sheet selector" in {
@@ -76,8 +81,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
       val trackConfig = preTrackConfig.toOption.get
-      trackConfig.policies should have size 1
-      trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(2)
+      val cp = new Checkpoint
+      cp { trackConfig.policies should have size 1 }
+      cp { trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(2) }
+      cp.reportAll()
     }
 
     "should parse multiple conditions" in {
@@ -96,9 +103,11 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
       val trackConfig = preTrackConfig.toOption.get
-      trackConfig.policies.head.conditions should have size 2
-      trackConfig.policies.head.conditions.toList(0).columnIndex shouldBe 0
-      trackConfig.policies.head.conditions.toList(1).columnIndex shouldBe 1
+      val cp = new Checkpoint
+      cp { trackConfig.policies.head.conditions should have size 2 }
+      cp { trackConfig.policies.head.conditions.toList(0).columnIndex shouldBe 0 }
+      cp { trackConfig.policies.head.conditions.toList(1).columnIndex shouldBe 1 }
+      cp.reportAll()
     }
 
     "should create validators for all supported parser types" in {
@@ -121,20 +130,21 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
 
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
-      val trackConfig = preTrackConfig.toOption.get
-      val conditions  = trackConfig.policies.head.conditions
+      val conditions = preTrackConfig.toOption.get.policies.head.conditions
 
-      conditions.toList(0).validator("hello") shouldBe true
-      conditions.toList(0).validator("") shouldBe false
-      conditions.toList(1).validator("42") shouldBe true
-      conditions.toList(1).validator("abc") shouldBe false
-      conditions.toList(2).validator("123456789") shouldBe true
-      conditions.toList(3).validator("3.14") shouldBe true
-      conditions.toList(4).validator("99.99") shouldBe true
-      conditions.toList(5).validator("2024-01-15") shouldBe true
-      conditions.toList(5).validator("not-a-date") shouldBe false
-      conditions.toList(6).validator("15.01.2024") shouldBe true
-      conditions.toList(6).validator("2024-01-15") shouldBe false
+      val cp = new Checkpoint
+      cp { conditions.toList(0).validator("hello") shouldBe true }
+      cp { conditions.toList(0).validator("") shouldBe false }
+      cp { conditions.toList(1).validator("42") shouldBe true }
+      cp { conditions.toList(1).validator("abc") shouldBe false }
+      cp { conditions.toList(2).validator("123456789") shouldBe true }
+      cp { conditions.toList(3).validator("3.14") shouldBe true }
+      cp { conditions.toList(4).validator("99.99") shouldBe true }
+      cp { conditions.toList(5).validator("2024-01-15") shouldBe true }
+      cp { conditions.toList(5).validator("not-a-date") shouldBe false }
+      cp { conditions.toList(6).validator("15.01.2024") shouldBe true }
+      cp { conditions.toList(6).validator("2024-01-15") shouldBe false }
+      cp.reportAll()
     }
 
     "should throw on unknown track condition type" in {
@@ -150,8 +160,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
                                                |""".stripMargin)
 
       val result = TrackConfig.readTrackConfig(config)
-      result shouldBe a[Left[_, _]]
-      result.swap.toOption.get should include("Unknown")
+      val cp = new Checkpoint
+      cp { result shouldBe a[Left[_, _]] }
+      cp { result.left.getOrElse("") should include("Unknown") }
+      cp.reportAll()
     }
   }
 
@@ -176,8 +188,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
         val dateRow   = createRow(wb, "Sheet1", "2024-01-15", "data")
         val headerRow = createRow(wb, "Sheet1", "Header", "stuff")
 
-        detector(dateRow) shouldBe true
-        detector(headerRow) shouldBe false
+        val cp = new Checkpoint
+        cp { detector(dateRow) shouldBe true }
+        cp { detector(headerRow) shouldBe false }
+        cp.reportAll()
       } finally {
         wb.close()
       }
@@ -195,8 +209,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
         val matchRow   = createRow(wb, "Target", "anything", "MATCH")
         val noMatchRow = createRow(wb, "Target", "anything", "NOPE")
 
-        detector(matchRow) shouldBe true
-        detector(noMatchRow) shouldBe false
+        val cp = new Checkpoint
+        cp { detector(matchRow) shouldBe true }
+        cp { detector(noMatchRow) shouldBe false }
+        cp.reportAll()
       } finally {
         wb.close()
       }
@@ -214,8 +230,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
         val matchRow   = createRow(wb, "AnyName", "DATA-row")
         val noMatchRow = createRow(wb, "AnyName", "header-row")
 
-        detector(matchRow) shouldBe true
-        detector(noMatchRow) shouldBe false
+        val cp = new Checkpoint
+        cp { detector(matchRow) shouldBe true }
+        cp { detector(noMatchRow) shouldBe false }
+        cp.reportAll()
       } finally {
         wb.close()
       }
@@ -236,8 +254,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
         val matchRow   = createRow(wb, "Unconfigured", "DEFAULT")
         val noMatchRow = createRow(wb, "Unconfigured", "other")
 
-        detector(matchRow) shouldBe true
-        detector(noMatchRow) shouldBe false
+        val cp = new Checkpoint
+        cp { detector(matchRow) shouldBe true }
+        cp { detector(noMatchRow) shouldBe false }
+        cp.reportAll()
       } finally {
         wb.close()
       }
@@ -263,10 +283,12 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
         val secondOnly   = createRow(wb, "Multi", "abc", "text")
         val neitherMatch = createRow(wb, "Multi", "abc", "")
 
-        detector(bothMatch) shouldBe true
-        detector(firstOnly) shouldBe false
-        detector(secondOnly) shouldBe false
-        detector(neitherMatch) shouldBe false
+        val cp = new Checkpoint
+        cp { detector(bothMatch) shouldBe true }
+        cp { detector(firstOnly) shouldBe false }
+        cp { detector(secondOnly) shouldBe false }
+        cp { detector(neitherMatch) shouldBe false }
+        cp.reportAll()
       } finally {
         wb.close()
       }
@@ -287,8 +309,10 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers {
         val namedRow   = createRow(wb, "Named", "NAMED")
         val defaultRow = createRow(wb, "Named", "DEFAULT")
 
-        detector(namedRow) shouldBe true
-        detector(defaultRow) shouldBe false
+        val cp = new Checkpoint
+        cp { detector(namedRow) shouldBe true }
+        cp { detector(defaultRow) shouldBe false }
+        cp.reportAll()
       } finally {
         wb.close()
       }

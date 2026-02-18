@@ -10,12 +10,13 @@ import io.github.ssstlis.excelsorter.config.track._
 import io.github.ssstlis.excelsorter.dsl._
 import io.github.ssstlis.excelsorter.config.sorting.SheetSortingConfig
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.scalatest.Checkpoints
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 
-class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
+class PairedSheetCutterSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
   private def createTestWorkbook(
     path: String,
@@ -67,10 +68,12 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                      = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, _) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      oldCutPath should endWith("_sortcutted.xlsx")
-      newCutPath should endWith("_sortcutted.xlsx")
-      new File(oldCutPath).exists() shouldBe true
-      new File(newCutPath).exists() shouldBe true
+      val cp = new Checkpoint
+      cp { oldCutPath should endWith("_sortcutted.xlsx") }
+      cp { newCutPath should endWith("_sortcutted.xlsx") }
+      cp { new File(oldCutPath).exists() shouldBe true }
+      cp { new File(newCutPath).exists() shouldBe true }
+      cp.reportAll()
     }
 
     "should not modify _sorted files" in {
@@ -87,8 +90,10 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter = PairedSheetCutter(Set("Sheet1"))
       cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      readSheetRows(oldPath, "Sheet1") shouldBe oldOriginalRows
-      readSheetRows(newPath, "Sheet1") shouldBe newOriginalRows
+      val cp = new Checkpoint
+      cp { readSheetRows(oldPath, "Sheet1") shouldBe oldOriginalRows }
+      cp { readSheetRows(newPath, "Sheet1") shouldBe newOriginalRows }
+      cp.reportAll()
     }
 
     "should remove equal leading data rows from _sortcutted files" in {
@@ -112,16 +117,17 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                            = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 2
-
       val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
-      oldCutRows should have size 2 // header + 1 data row
-      oldCutRows(1) shouldBe List("2024-01-03", "old-only")
-
       val newCutRows = readSheetRows(newCutPath, "Sheet1")
-      newCutRows should have size 2
-      newCutRows(1) shouldBe List("2024-01-04", "new-only")
+
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 2 }
+      cp { oldCutRows should have size 2 }
+      cp { oldCutRows(1) shouldBe List("2024-01-03", "old-only") }
+      cp { newCutRows should have size 2 }
+      cp { newCutRows(1) shouldBe List("2024-01-04", "new-only") }
+      cp.reportAll()
     }
 
     "should preserve headers" in {
@@ -145,8 +151,10 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                      = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, _) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      readSheetRows(oldCutPath, "Sheet1").head shouldBe List("Date", "Value")
-      readSheetRows(newCutPath, "Sheet1").head shouldBe List("Date", "Value")
+      val cp = new Checkpoint
+      cp { readSheetRows(oldCutPath, "Sheet1").head shouldBe List("Date", "Value") }
+      cp { readSheetRows(newCutPath, "Sheet1").head shouldBe List("Date", "Value") }
+      cp.reportAll()
     }
 
     "should handle no equal leading rows" in {
@@ -160,11 +168,12 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                            = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 0
-
-      readSheetRows(oldCutPath, "Sheet1") should have size 2
-      readSheetRows(newCutPath, "Sheet1") should have size 2
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 0 }
+      cp { readSheetRows(oldCutPath, "Sheet1") should have size 2 }
+      cp { readSheetRows(newCutPath, "Sheet1") should have size 2 }
+      cp.reportAll()
     }
 
     "should use trackConfig for data row detection" in {
@@ -191,12 +200,14 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                   = PairedSheetCutter(Set("Sheet1"), track)
       val (oldCutPath, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 1
-
       val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
-      oldCutRows should have size 3 // Title + SubHeader + 1 data
-      oldCutRows(2) shouldBe List("DATA-2", "old-only")
+
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 1 }
+      cp { oldCutRows should have size 3 }
+      cp { oldCutRows(2) shouldBe List("DATA-2", "old-only") }
+      cp.reportAll()
     }
 
     "should ignore specified columns when comparing" in {
@@ -222,11 +233,11 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                   = PairedSheetCutter(Set("Sheet1"), compareConfig = compare)
       val (oldCutPath, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 2
-
-      val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
-      oldCutRows should have size 1
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 2 }
+      cp { readSheetRows(oldCutPath, "Sheet1") should have size 1 }
+      cp.reportAll()
     }
 
     "should report first mismatch row and key" in {
@@ -253,10 +264,12 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter          = PairedSheetCutter(Set("Sheet1"), sortConfigsMap = sortConfigs)
       val (_, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 2
-      results.head.firstMismatchRowNum shouldBe Some(4)
-      results.head.firstMismatchKey shouldBe Some("2024-01-03")
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 2 }
+      cp { results.head.firstMismatchRowNum shouldBe Some(4) }
+      cp { results.head.firstMismatchKey shouldBe Some("2024-01-03") }
+      cp.reportAll()
     }
 
     "should treat reordered columns as equal when cutting" in {
@@ -290,16 +303,17 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                            = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, newCutPath, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 2
-
       val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
-      oldCutRows should have size 2 // header + 1 data row
-      oldCutRows(1) shouldBe List("2024-01-03", "300", "old-only")
-
       val newCutRows = readSheetRows(newCutPath, "Sheet1")
-      newCutRows should have size 2
-      newCutRows(1) shouldBe List("2024-01-04", "new-only", "400")
+
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 2 }
+      cp { oldCutRows should have size 2 }
+      cp { oldCutRows(1) shouldBe List("2024-01-03", "300", "old-only") }
+      cp { newCutRows should have size 2 }
+      cp { newCutRows(1) shouldBe List("2024-01-04", "new-only", "400") }
+      cp.reportAll()
     }
 
     "should treat reordered columns with different values as unequal" in {
@@ -315,8 +329,10 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter          = PairedSheetCutter(Set("Sheet1"))
       val (_, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 0
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 0 }
+      cp.reportAll()
     }
 
     "should ignore new-only column and cut equal rows on common columns" in {
@@ -342,12 +358,11 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                   = PairedSheetCutter(Set("Sheet1"))
       val (oldCutPath, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 2
-
-      // Only header remains
-      val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
-      oldCutRows should have size 1
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 2 }
+      cp { readSheetRows(oldCutPath, "Sheet1") should have size 1 }
+      cp.reportAll()
     }
 
     "should combine column mapping with ignored columns" in {
@@ -376,12 +391,11 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter                   = PairedSheetCutter(Set("Sheet1"), compareConfig = compare)
       val (oldCutPath, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      // Both rows have equal Date and Amount (after mapping); Note is ignored → 2 rows cut
-      results.head.equalRowCount shouldBe 2
-
-      val oldCutRows = readSheetRows(oldCutPath, "Sheet1")
-      oldCutRows should have size 1 // only header
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 2 }
+      cp { readSheetRows(oldCutPath, "Sheet1") should have size 1 }
+      cp.reportAll()
     }
 
     "should report no mismatch when all data rows are equal" in {
@@ -405,10 +419,12 @@ class PairedSheetCutterSpec extends AnyFreeSpec with Matchers {
       val cutter          = PairedSheetCutter(Set("Sheet1"))
       val (_, _, results) = cutter.cutEqualLeadingRows(oldPath, newPath)
 
-      results should have size 1
-      results.head.equalRowCount shouldBe 2
-      results.head.firstMismatchRowNum shouldBe None
-      results.head.firstMismatchKey shouldBe None
+      val cp = new Checkpoint
+      cp { results should have size 1 }
+      cp { results.head.equalRowCount shouldBe 2 }
+      cp { results.head.firstMismatchRowNum shouldBe None }
+      cp { results.head.firstMismatchKey shouldBe None }
+      cp.reportAll()
     }
   }
 }

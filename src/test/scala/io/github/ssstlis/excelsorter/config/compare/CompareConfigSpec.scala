@@ -2,10 +2,11 @@ package io.github.ssstlis.excelsorter.config.compare
 
 import com.typesafe.config.ConfigFactory
 import io.github.ssstlis.excelsorter.config.SheetSelector
+import org.scalatest.Checkpoints
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-class CompareConfigSpec extends AnyFreeSpec with Matchers {
+class CompareConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
   "CompareConfig.readCompareConfig" - {
 
@@ -33,9 +34,11 @@ class CompareConfigSpec extends AnyFreeSpec with Matchers {
       val preCompareConfig = CompareConfig.readCompareConfig(config)
       preCompareConfig shouldBe a[Right[_, _]]
       val compareConfig = preCompareConfig.toOption.get
-      compareConfig.policies should have size 1
-      compareConfig.policies.head.sheetSelector shouldBe SheetSelector.Default
-      compareConfig.policies.head.ignoreColumns shouldBe Set(3, 5)
+      val cp = new Checkpoint
+      cp { compareConfig.policies should have size 1 }
+      cp { compareConfig.policies.head.sheetSelector shouldBe SheetSelector.Default }
+      cp { compareConfig.policies.head.ignoreColumns shouldBe Set(3, 5) }
+      cp.reportAll()
     }
 
     "should parse named sheet selector" in {
@@ -51,9 +54,11 @@ class CompareConfigSpec extends AnyFreeSpec with Matchers {
       val preCompareConfig = CompareConfig.readCompareConfig(config)
       preCompareConfig shouldBe a[Right[_, _]]
       val compareConfig = preCompareConfig.toOption.get
-      compareConfig.policies should have size 1
-      compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("MySheet")
-      compareConfig.policies.head.ignoreColumns shouldBe Set(1, 4, 7)
+      val cp = new Checkpoint
+      cp { compareConfig.policies should have size 1 }
+      cp { compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("MySheet") }
+      cp { compareConfig.policies.head.ignoreColumns shouldBe Set(1, 4, 7) }
+      cp.reportAll()
     }
 
     "should parse indexed sheet selector" in {
@@ -69,9 +74,11 @@ class CompareConfigSpec extends AnyFreeSpec with Matchers {
       val preCompareConfig = CompareConfig.readCompareConfig(config)
       preCompareConfig shouldBe a[Right[_, _]]
       val compareConfig = preCompareConfig.toOption.get
-      compareConfig.policies should have size 1
-      compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(0)
-      compareConfig.policies.head.ignoreColumns shouldBe Set(2)
+      val cp = new Checkpoint
+      cp { compareConfig.policies should have size 1 }
+      cp { compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(0) }
+      cp { compareConfig.policies.head.ignoreColumns shouldBe Set(2) }
+      cp.reportAll()
     }
 
     "should parse multiple policies" in {
@@ -126,8 +133,10 @@ class CompareConfigSpec extends AnyFreeSpec with Matchers {
         )
       )
 
-      config.ignoredColumns("Sheet1", 0) shouldBe Set(1, 3)
-      config.ignoredColumns("Sheet2", 1) shouldBe Set(5)
+      val cp = new Checkpoint
+      cp { config.ignoredColumns("Sheet1", 0) shouldBe Set(1, 3) }
+      cp { config.ignoredColumns("Sheet2", 1) shouldBe Set(5) }
+      cp.reportAll()
     }
 
     "should return ignored columns by sheet index" in {
