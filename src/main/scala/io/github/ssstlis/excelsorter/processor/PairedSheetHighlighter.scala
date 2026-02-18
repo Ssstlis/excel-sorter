@@ -116,6 +116,7 @@ class PairedSheetHighlighter(
       case (None, Some(newRow)) =>
         applyBackground(newRow, newWorkbook, newStyleCache, Set.empty, PaleOrange)
         processRowsState.copy(newOnly = processRowsState.newOnly + 1)
+      case _ => processRowsState
     }
   }
 
@@ -185,7 +186,7 @@ class PairedSheetHighlighter(
           matchedDifferentDataCount = processRowsState.matchedDiffData,
           oldOnlyCount = processRowsState.oldOnly,
           newOnlyCount = processRowsState.newOnly,
-          rowDiffs = processRowsState.rowDiffs.reverse,
+          rowDiffs = processRowsState.rowDiffs,
           oldOnlyColumns = mapping.oldOnlyColumns.map(_._2),
           newOnlyColumns = mapping.newOnlyColumns.map(_._2)
         )

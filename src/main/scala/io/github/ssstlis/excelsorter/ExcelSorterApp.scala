@@ -9,7 +9,6 @@ import io.github.ssstlis.excelsorter.model.{CompareResult, HighlightResult}
 import io.github.ssstlis.excelsorter.processor._
 
 import java.io.{File, PrintWriter}
-
 import scala.util.{Failure, Success, Try}
 
 object ExcelSorterApp extends App {
@@ -201,7 +200,7 @@ object ExcelSorterApp extends App {
           if (r.rowDiffs.nonEmpty) {
             writer.println()
             writer.println(s"  Row differences (${r.rowDiffs.size}):")
-            r.rowDiffs.foreach { rd =>
+            r.rowDiffs.sortBy(_.oldRowNum).foreach { rd =>
               writer.println(s"    Key: ${rd.key} (old row ${rd.oldRowNum}, new row ${rd.newRowNum})")
               rd.cellDiffs.foreach { cd =>
                 writer.println(s"      ${cd.columnName}: '${cd.oldValue}' -> '${cd.newValue}'")
