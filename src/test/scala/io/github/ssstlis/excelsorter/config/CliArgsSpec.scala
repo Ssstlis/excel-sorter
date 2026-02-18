@@ -6,6 +6,153 @@ import org.scalatest.matchers.should.Matchers
 
 class CliArgsSpec extends AnyFreeSpec with Matchers {
 
+  "CliArgs.splitIntoBlocks" - {
+
+    "empty list produces empty result" in {
+      CliArgs.splitIntoBlocks(Nil) shouldBe Nil
+    }
+
+    "single block with no args" in {
+      CliArgs.splitIntoBlocks(List("--sortings")) shouldBe
+        List("--sortings" -> Nil)
+    }
+
+    "single block with args" in {
+      CliArgs.splitIntoBlocks(List("--sortings", "a", "b")) shouldBe
+        List("--sortings" -> List("a", "b"))
+    }
+
+    "two adjacent blocks with no args" in {
+      CliArgs.splitIntoBlocks(List("--sortings", "--tracks")) shouldBe
+        List("--sortings" -> Nil, "--tracks" -> Nil)
+    }
+
+    "two blocks with args each" in {
+      CliArgs.splitIntoBlocks(List("--sortings", "a", "b", "--tracks", "c")) shouldBe
+        List("--sortings" -> List("a", "b"), "--tracks" -> List("c"))
+    }
+
+    "three blocks preserve order" in {
+      CliArgs.splitIntoBlocks(List("--sortings", "s1", "--tracks", "t1", "--comparisons", "c1")) shouldBe
+        List("--sortings" -> List("s1"), "--tracks" -> List("t1"), "--comparisons" -> List("c1"))
+    }
+
+    "non-starter as first arg produces __unknown__" in {
+      CliArgs.splitIntoBlocks(List("unexpected", "--sortings", "a")) shouldBe
+        List("__unknown__" -> List("unexpected"))
+    }
+
+    "single non-starter arg produces __unknown__" in {
+      CliArgs.splitIntoBlocks(List("unexpected")) shouldBe
+        List("__unknown__" -> List("unexpected"))
+    }
+  }
+
+  "CliArgs.parseConfSection" - {
+
+    "empty list returns error" in {
+      val result = CliArgs.parseConfSection(Nil)
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include("--conf requires at least one")
+    }
+
+    "valid --sortings block" in {
+      val result = CliArgs.parseConfSection(
+        List("--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "String")
+      )
+      result.isRight shouldBe true
+      val cfg = result.toOption.get
+      cfg.sortConfig should have size 1
+      cfg.sortConfig.head.sheetName shouldBe "Sheet1"
+      cfg.trackConfig.policies shouldBe Nil
+      cfg.compareConfig.policies shouldBe Nil
+    }
+
+    "valid --tracks block" in {
+      val result = CliArgs.parseConfSection(
+        List("--tracks", "-sheet", "default", "-cond", "0", "LocalDate")
+      )
+      result.isRight shouldBe true
+      val cfg = result.toOption.get
+      cfg.trackConfig.policies should have size 1
+      cfg.trackConfig.policies.head.sheetSelector shouldBe SheetSelector.Default
+      cfg.sortConfig shouldBe Nil
+      cfg.compareConfig.policies shouldBe Nil
+    }
+
+    "valid --comparisons block" in {
+      val result = CliArgs.parseConfSection(
+        List("--comparisons", "-sheet", "Sheet1", "-ic", "3", "7")
+      )
+      result.isRight shouldBe true
+      val cfg = result.toOption.get
+      cfg.compareConfig.policies should have size 1
+      cfg.compareConfig.policies.head.ignoreColumns shouldBe Set(3, 7)
+      cfg.sortConfig shouldBe Nil
+      cfg.trackConfig.policies shouldBe Nil
+    }
+
+    "multiple blocks of each type accumulate in order" in {
+      val result = CliArgs.parseConfSection(
+        List(
+          "--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "String",
+          "--tracks",   "-sheet", "Sheet1", "-cond", "0", "LocalDate",
+          "--comparisons", "-sheet", "Sheet1", "-ic", "1"
+        )
+      )
+      result.isRight shouldBe true
+      val cfg = result.toOption.get
+      cfg.sortConfig should have size 1
+      cfg.trackConfig.policies should have size 1
+      cfg.compareConfig.policies should have size 1
+    }
+
+    "two --sortings blocks accumulate both" in {
+      val result = CliArgs.parseConfSection(
+        List(
+          "--sortings", "-sheet", "A", "-sort", "asc", "0", "String",
+          "--sortings", "-sheet", "B", "-sort", "desc", "1", "Int"
+        )
+      )
+      result.isRight shouldBe true
+      val cfg = result.toOption.get
+      cfg.sortConfig should have size 2
+      cfg.sortConfig.map(_.sheetName) shouldBe List("A", "B")
+    }
+
+    "unknown block type returns error" in {
+      val result = CliArgs.parseConfSection(List("--unknown", "-sheet", "X"))
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include("Unknown config block type")
+      result.left.getOrElse("") should include("__unknown__")
+    }
+
+    "non-starter first arg triggers __unknown__ and returns error" in {
+      val result = CliArgs.parseConfSection(List("garbage", "--sortings", "-sheet", "S", "-sort", "asc", "0", "String"))
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include("Unknown config block type")
+    }
+
+    "invalid -sort order inside sortings propagates error" in {
+      val result = CliArgs.parseConfSection(
+        List("--sortings", "-sheet", "S", "-sort", "sideways", "0", "String")
+      )
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include("Unknown sort order")
+    }
+
+    "error in second block still returns Left" in {
+      val result = CliArgs.parseConfSection(
+        List(
+          "--sortings", "-sheet", "Good", "-sort", "asc", "0", "String",
+          "--tracks",   "-sheet", "Bad",  "-cond", "0", "NotAType"
+        )
+      )
+      result.isLeft shouldBe true
+      result.left.getOrElse("") should include("Unknown track condition type")
+    }
+  }
+
   "CliArgs.parse" - {
 
     "should parse SortOnly mode when no flags given" in {

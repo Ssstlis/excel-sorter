@@ -77,7 +77,7 @@ object CliArgs {
     }
   }
 
-  private def parseConfSection(args: List[String]): Either[String, AppConfig] = {
+  private[config] def parseConfSection(args: List[String]): Either[String, AppConfig] = {
     val blocks = splitIntoBlocks(args)
 
     if (blocks.isEmpty) {
@@ -114,31 +114,17 @@ object CliArgs {
     }
   }
 
-  private def splitIntoBlocks(args: List[String]): List[(String, List[String])] = {
-    val result              = List.newBuilder[(String, List[String])]
-    var currentType: String = null
-    var currentArgs         = List.newBuilder[String]
-
-    for (arg <- args) {
-      if (blockStarters.contains(arg)) {
-        if (currentType != null) {
-          result += ((currentType, currentArgs.result()))
+  private[config] def splitIntoBlocks(args: List[String]): List[(String, List[String])] =
+    args match {
+      case head :: _ if !blockStarters.contains(head) => List("__unknown__" -> List(head))
+      case _ =>
+        List.unfold(args) {
+          case Nil => None
+          case head :: tail =>
+            val (blockArgs, rest) = tail.span(!blockStarters.contains(_))
+            Some(((head, blockArgs), rest))
         }
-        currentType = arg
-        currentArgs = List.newBuilder[String]
-      } else if (currentType == null) {
-        return List(("__unknown__" -> List(arg)))
-      } else {
-        currentArgs += arg
-      }
     }
-
-    if (currentType != null) {
-      result += ((currentType, currentArgs.result()))
-    }
-
-    result.result()
-  }
 
   def parseSheetName(args: List[String]): Either[String, (String, List[String])] = {
     args match {
