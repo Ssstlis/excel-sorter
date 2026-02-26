@@ -137,7 +137,7 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers with Checkpoints 
                                                |""".stripMargin)
 
       val result = SheetSortingConfig.readSortConfig(config)
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result shouldBe a[Left[_, _]] }
       cp { result.left.getOrElse("") should include("Unknown") }
       cp.reportAll()
@@ -156,7 +156,7 @@ class SheetSortingConfigSpec extends AnyFreeSpec with Matchers with Checkpoints 
                                                |""".stripMargin)
 
       val result = SheetSortingConfig.readSortConfig(config)
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result shouldBe a[Left[_, _]] }
       cp { result.left.getOrElse("") should include("sideways") }
       cp.reportAll()

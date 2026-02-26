@@ -53,19 +53,17 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "empty list returns error" in {
       val result = CliArgs.parseConfSection(Nil)
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("--conf requires at least one") }
       cp.reportAll()
     }
 
     "valid --sortings block" in {
-      val result = CliArgs.parseConfSection(
-        List("--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "String")
-      )
+      val result = CliArgs.parseConfSection(List("--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "String"))
       result.isRight shouldBe true
       val cfg = result.toOption.get
-      val cp = new Checkpoint
+      val cp  = new Checkpoint
       cp { cfg.sortConfig should have size 1 }
       cp { cfg.sortConfig.head.sheetName shouldBe "Sheet1" }
       cp { cfg.trackConfig.policies shouldBe Nil }
@@ -74,12 +72,10 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
     }
 
     "valid --tracks block" in {
-      val result = CliArgs.parseConfSection(
-        List("--tracks", "-sheet", "default", "-cond", "0", "LocalDate")
-      )
+      val result = CliArgs.parseConfSection(List("--tracks", "-sheet", "default", "-cond", "0", "LocalDate"))
       result.isRight shouldBe true
       val cfg = result.toOption.get
-      val cp = new Checkpoint
+      val cp  = new Checkpoint
       cp { cfg.trackConfig.policies should have size 1 }
       cp { cfg.trackConfig.policies.head.sheetSelector shouldBe SheetSelector.Default }
       cp { cfg.sortConfig shouldBe Nil }
@@ -88,12 +84,10 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
     }
 
     "valid --comparisons block" in {
-      val result = CliArgs.parseConfSection(
-        List("--comparisons", "-sheet", "Sheet1", "-ic", "3", "7")
-      )
+      val result = CliArgs.parseConfSection(List("--comparisons", "-sheet", "Sheet1", "-ic", "3", "7"))
       result.isRight shouldBe true
       val cfg = result.toOption.get
-      val cp = new Checkpoint
+      val cp  = new Checkpoint
       cp { cfg.compareConfig.policies should have size 1 }
       cp { cfg.compareConfig.policies.head.ignoreColumns shouldBe Set(3, 7) }
       cp { cfg.sortConfig shouldBe Nil }
@@ -104,14 +98,29 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
     "multiple blocks of each type accumulate in order" in {
       val result = CliArgs.parseConfSection(
         List(
-          "--sortings", "-sheet", "Sheet1", "-sort", "asc", "0", "String",
-          "--tracks",   "-sheet", "Sheet1", "-cond", "0", "LocalDate",
-          "--comparisons", "-sheet", "Sheet1", "-ic", "1"
+          "--sortings",
+          "-sheet",
+          "Sheet1",
+          "-sort",
+          "asc",
+          "0",
+          "String",
+          "--tracks",
+          "-sheet",
+          "Sheet1",
+          "-cond",
+          "0",
+          "LocalDate",
+          "--comparisons",
+          "-sheet",
+          "Sheet1",
+          "-ic",
+          "1"
         )
       )
       result.isRight shouldBe true
       val cfg = result.toOption.get
-      val cp = new Checkpoint
+      val cp  = new Checkpoint
       cp { cfg.sortConfig should have size 1 }
       cp { cfg.trackConfig.policies should have size 1 }
       cp { cfg.compareConfig.policies should have size 1 }
@@ -121,13 +130,25 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
     "two --sortings blocks accumulate both" in {
       val result = CliArgs.parseConfSection(
         List(
-          "--sortings", "-sheet", "A", "-sort", "asc", "0", "String",
-          "--sortings", "-sheet", "B", "-sort", "desc", "1", "Int"
+          "--sortings",
+          "-sheet",
+          "A",
+          "-sort",
+          "asc",
+          "0",
+          "String",
+          "--sortings",
+          "-sheet",
+          "B",
+          "-sort",
+          "desc",
+          "1",
+          "Int"
         )
       )
       result.isRight shouldBe true
       val cfg = result.toOption.get
-      val cp = new Checkpoint
+      val cp  = new Checkpoint
       cp { cfg.sortConfig should have size 2 }
       cp { cfg.sortConfig.map(_.sheetName) shouldBe List("A", "B") }
       cp.reportAll()
@@ -135,7 +156,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "unknown block type returns error" in {
       val result = CliArgs.parseConfSection(List("--unknown", "-sheet", "X"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("Unknown config block type") }
       cp { result.left.getOrElse("") should include("__unknown__") }
@@ -144,17 +165,15 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "non-starter first arg triggers __unknown__ and returns error" in {
       val result = CliArgs.parseConfSection(List("garbage", "--sortings", "-sheet", "S", "-sort", "asc", "0", "String"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("Unknown config block type") }
       cp.reportAll()
     }
 
     "invalid -sort order inside sortings propagates error" in {
-      val result = CliArgs.parseConfSection(
-        List("--sortings", "-sheet", "S", "-sort", "sideways", "0", "String")
-      )
-      val cp = new Checkpoint
+      val result = CliArgs.parseConfSection(List("--sortings", "-sheet", "S", "-sort", "sideways", "0", "String"))
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("Unknown sort order") }
       cp.reportAll()
@@ -163,8 +182,19 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
     "error in second block still returns Left" in {
       val result = CliArgs.parseConfSection(
         List(
-          "--sortings", "-sheet", "Good", "-sort", "asc", "0", "String",
-          "--tracks",   "-sheet", "Bad",  "-cond", "0", "NotAType"
+          "--sortings",
+          "-sheet",
+          "Good",
+          "-sort",
+          "asc",
+          "0",
+          "String",
+          "--tracks",
+          "-sheet",
+          "Bad",
+          "-cond",
+          "0",
+          "NotAType"
         )
       )
       val cp = new Checkpoint
@@ -208,7 +238,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "should reject mutually exclusive --cut and --compare" in {
       val result = CliArgs.parse(Array("--cut", "--compare", "file1.xlsx"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("mutually exclusive") }
       cp.reportAll()
@@ -216,7 +246,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "should reject mutually exclusive -c and -cmp" in {
       val result = CliArgs.parse(Array("-c", "-cmp", "file1.xlsx"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("mutually exclusive") }
       cp.reportAll()
@@ -224,7 +254,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "should reject unknown flags" in {
       val result = CliArgs.parse(Array("--unknown", "file1.xlsx"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("Unknown flag") }
       cp.reportAll()
@@ -232,7 +262,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "should reject empty files" in {
       val result = CliArgs.parse(Array("--cut"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("No input files") }
       cp.reportAll()
@@ -439,7 +469,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
       result.isRight shouldBe true
       val cliArgs = result.toOption.get
-      val cp = new Checkpoint
+      val cp      = new Checkpoint
       cp { cliArgs.mode shouldBe RunMode.Cut }
       cp { cliArgs.filePaths shouldBe Seq("old.xlsx", "new.xlsx") }
       cp { cliArgs.appConfig shouldBe defined }
@@ -451,7 +481,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "error: unknown block type after --conf" in {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--unknown", "-sheet", "X"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("Unknown config block type") }
       cp.reportAll()
@@ -459,7 +489,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "error: missing -sheet/-s in sortings block" in {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sort", "asc", "0", "String"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("Expected -sheet/-s") }
       cp.reportAll()
@@ -485,7 +515,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "error: invalid parser type in tracks" in {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--tracks", "-sheet", "S", "-cond", "0", "BadType"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("Unknown track condition type") }
       cp.reportAll()
@@ -493,7 +523,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "error: missing sort entries in sortings block" in {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--sortings", "-sheet", "S"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("at least one -sort/-o entry") }
       cp.reportAll()
@@ -501,7 +531,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "error: missing cond entries in tracks block" in {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--tracks", "-sheet", "S"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("at least one -cond/-d entry") }
       cp.reportAll()
@@ -509,7 +539,7 @@ class CliArgsSpec extends AnyFreeSpec with Matchers with Checkpoints {
 
     "error: missing -ic in comparisons block" in {
       val result = CliArgs.parse(Array("file.xlsx", "--conf", "--comparisons", "-sheet", "S"))
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result.isLeft shouldBe true }
       cp { result.left.getOrElse("") should include("Expected -ic") }
       cp.reportAll()
