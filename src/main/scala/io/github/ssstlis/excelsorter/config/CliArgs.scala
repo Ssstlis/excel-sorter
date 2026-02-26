@@ -117,9 +117,9 @@ object CliArgs {
   private[config] def splitIntoBlocks(args: List[String]): List[(String, List[String])] =
     args match {
       case head :: _ if !blockStarters.contains(head) => List("__unknown__" -> List(head))
-      case _ =>
+      case _                                          =>
         List.unfold(args) {
-          case Nil => None
+          case Nil          => None
           case head :: tail =>
             val (blockArgs, rest) = tail.span(!blockStarters.contains(_))
             Some(((head, blockArgs), rest))
