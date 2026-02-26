@@ -39,7 +39,7 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
       val trackConfig = preTrackConfig.toOption.get
-      val cp = new Checkpoint
+      val cp          = new Checkpoint
       cp { trackConfig.policies should have size 1 }
       cp { trackConfig.policies.head.sheetSelector shouldBe SheetSelector.Default }
       cp.reportAll()
@@ -60,7 +60,7 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
       val trackConfig = preTrackConfig.toOption.get
-      val cp = new Checkpoint
+      val cp          = new Checkpoint
       cp { trackConfig.policies should have size 1 }
       cp { trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("MySheet") }
       cp.reportAll()
@@ -81,7 +81,7 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
       val trackConfig = preTrackConfig.toOption.get
-      val cp = new Checkpoint
+      val cp          = new Checkpoint
       cp { trackConfig.policies should have size 1 }
       cp { trackConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(2) }
       cp.reportAll()
@@ -103,7 +103,7 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
       val preTrackConfig = TrackConfig.readTrackConfig(config)
       preTrackConfig shouldBe a[Right[_, _]]
       val trackConfig = preTrackConfig.toOption.get
-      val cp = new Checkpoint
+      val cp          = new Checkpoint
       cp { trackConfig.policies.head.conditions should have size 2 }
       cp { trackConfig.policies.head.conditions.toList(0).columnIndex shouldBe 0 }
       cp { trackConfig.policies.head.conditions.toList(1).columnIndex shouldBe 1 }
@@ -160,7 +160,7 @@ class TrackConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
                                                |""".stripMargin)
 
       val result = TrackConfig.readTrackConfig(config)
-      val cp = new Checkpoint
+      val cp     = new Checkpoint
       cp { result shouldBe a[Left[_, _]] }
       cp { result.left.getOrElse("") should include("Unknown") }
       cp.reportAll()
