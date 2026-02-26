@@ -359,7 +359,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers with Checkpoi
       val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      val r = results.head
+      val r  = results.head
       val cp = new Checkpoint
       cp { r.matchedSameDataCount shouldBe 1 }
       cp { r.matchedDifferentDataCount shouldBe 1 }
@@ -466,7 +466,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers with Checkpoi
       val (_, _, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      val r = results.head
+      val r  = results.head
       val cp = new Checkpoint
       cp { r.matchedDifferentDataCount shouldBe 1 }
       cp { r.oldOnlyCount shouldBe 1 }
@@ -496,7 +496,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers with Checkpoi
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      val r = results.head
+      val r  = results.head
       val cp = new Checkpoint
       cp { r.matchedSameDataCount shouldBe 3 }
       cp { r.matchedDifferentDataCount shouldBe 0 }
@@ -844,7 +844,7 @@ class PairedSheetHighlighterSpec extends AnyFreeSpec with Matchers with Checkpoi
       val (oldCmpPath, newCmpPath, results) = highlighter.highlightPairedSheets(oldPath, newPath)
 
       results should have size 1
-      val r = results.head
+      val r  = results.head
       val cp = new Checkpoint
       cp { r.matchedSameDataCount shouldBe 0 }
       cp { r.matchedDifferentDataCount shouldBe 0 }

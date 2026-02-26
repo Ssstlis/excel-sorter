@@ -34,7 +34,7 @@ class CompareConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
       val preCompareConfig = CompareConfig.readCompareConfig(config)
       preCompareConfig shouldBe a[Right[_, _]]
       val compareConfig = preCompareConfig.toOption.get
-      val cp = new Checkpoint
+      val cp            = new Checkpoint
       cp { compareConfig.policies should have size 1 }
       cp { compareConfig.policies.head.sheetSelector shouldBe SheetSelector.Default }
       cp { compareConfig.policies.head.ignoreColumns shouldBe Set(3, 5) }
@@ -54,7 +54,7 @@ class CompareConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
       val preCompareConfig = CompareConfig.readCompareConfig(config)
       preCompareConfig shouldBe a[Right[_, _]]
       val compareConfig = preCompareConfig.toOption.get
-      val cp = new Checkpoint
+      val cp            = new Checkpoint
       cp { compareConfig.policies should have size 1 }
       cp { compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByName("MySheet") }
       cp { compareConfig.policies.head.ignoreColumns shouldBe Set(1, 4, 7) }
@@ -74,7 +74,7 @@ class CompareConfigSpec extends AnyFreeSpec with Matchers with Checkpoints {
       val preCompareConfig = CompareConfig.readCompareConfig(config)
       preCompareConfig shouldBe a[Right[_, _]]
       val compareConfig = preCompareConfig.toOption.get
-      val cp = new Checkpoint
+      val cp            = new Checkpoint
       cp { compareConfig.policies should have size 1 }
       cp { compareConfig.policies.head.sheetSelector shouldBe SheetSelector.ByIndex(0) }
       cp { compareConfig.policies.head.ignoreColumns shouldBe Set(2) }
