@@ -49,7 +49,7 @@ lazy val `excel-sorter` = project
     libraryDependencies ++= Seq(
       "org.apache.poi" % "poi"       % "5.5.1",
       "org.apache.poi" % "poi-ooxml" % "5.5.1",
-      "com.typesafe"   % "config"    % "1.4.5",
+      "com.typesafe"   % "config"    % "1.4.6",
       "org.typelevel" %% "cats-core" % "2.13.0",
       "org.scalatest" %% "scalatest" % "3.2.19" % Test
     )
