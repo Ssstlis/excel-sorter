@@ -1,7 +1,7 @@
 pull_request_rules:
   - name: Request reviews and label Steward's PRs
     conditions:
-      - author=ssstlis-bot
+      - author=ssstlis-bot[bot]
     actions:
       request_reviews:
         users: [ Ssstlis ]
@@ -10,7 +10,7 @@ pull_request_rules:
 
   - name: Merge Steward's PRs
     conditions:
-      - author=ssstlis-bot
+      - author=ssstlis-bot[bot]
       - or:
           - and:
               - "#files=1"
@@ -20,7 +20,7 @@ pull_request_rules:
           - body~=labels:.*semver-patch
           - "#approved-reviews-by>=1"
       - and:
-          - check-success~=test
+          - check-success~=Test
     actions:
       merge:
         method: rebase
