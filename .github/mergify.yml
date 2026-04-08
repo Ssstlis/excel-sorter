@@ -4,9 +4,9 @@ pull_request_rules:
       - author=ssstlis-bot[bot]
     actions:
       request_reviews:
-        users: [ Ssstlis ]
+        users: [Ssstlis]
       label:
-        add: [ dependency-update ]
+        add: [dependency-update]
 
   - name: Merge Steward's PRs
     conditions:
@@ -25,8 +25,5 @@ pull_request_rules:
       merge:
         method: rebase
 
-  - name: Delete head branch after merge
-    conditions:
-      - merged
-    actions:
-      delete_head_branch:
+merge_protections_settings:
+  reporting_method: check-runs
